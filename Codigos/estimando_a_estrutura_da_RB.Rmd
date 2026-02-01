@@ -1,0 +1,178 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+. 
+
+```{r}
+library(bnlearn)
+library(igraph)
+library(dplyr)
+```
+
+```{r}
+
+setwd("C:\\Users\\Pichau\\INMET")
+
+df = read.csv("C:/Users/Pichau/INMET/TODAS_ESTACOES/df_variaveis_selecionadas_categoricas.csv", header = TRUE, sep = ",")
+
+
+```
+
+
+# Converter colunas de interesse em fatores
+```{r}
+df[] <- lapply(df, as.factor)
+```
+
+```{r}
+df
+```
+
+```{r}
+
+# Carregar pacotes
+library(bnlearn)
+library(igraph)
+
+
+model_hc_bic <- hc(df, score = "bic")
+
+# Converter para igraph
+g <- as.igraph(model_hc_bic)
+
+# Definir layout melhorado (Sugiyama)
+layout_sugi <- layout_with_sugiyama(g)$layout
+
+# Exportar gráfico em alta resolução para PNG
+
+png("C:/Users/Pichau/INMET/Estruturas das Redes Bayesianas/Geral/rede_bayesiana_completa_geral.png", 
+    width = 2000, height = 1600, res = 150)
+
+# Plotar com melhorias visuais
+plot(
+  g,
+  layout = layout_sugi,
+  vertex.label = V(g)$name,
+  vertex.size = 20,
+  vertex.label.cex = 0.4,
+  vertex.label.color = "black",
+  vertex.color = "lightblue",
+  edge.arrow.size = 0.5,
+  edge.color = "gray40",
+  margin = 0.1,
+  main = "Rede Bayesiana das relações probabilísticas relacionadas a chuva (BIC)"
+)
+
+dev.off()
+
+```
+
+```{r}
+# Retorna os pais da variável 'chuva' (variáveis que apontam para 'chuva')
+parents(model_hc_bic, node = "chuva")
+
+```
+ 
+
+```{r}
+
+parents(model_hc_bic, node = "umid_var1")
+```
+
+```{r}
+
+parents(model_hc_bic, node = "radiacao_var3")
+```
+
+```{r}
+
+parents(model_hc_bic, node = "vento_var1")
+```
+
+```{r}
+
+parents(model_hc_bic, node = "umid_valor1")
+
+```
+
+########## Criando a rede com chuva até seus avós (dois niveis)
+
+
+
+```{r}
+library(bnlearn)
+library(igraph)
+
+# Ajusta a estrutura da rede bayesiana
+model_hc_bic <- hc(df, score = "bic")
+
+# Define o nó de interesse
+target <- "chuva"
+
+# 1. Obtém os pais de 'chuva'
+pais_chuva <- parents(model_hc_bic, target)
+
+# 2. Obtém os avós: pais dos pais de 'chuva'
+avos <- unique(unlist(lapply(pais_chuva, function(p) parents(model_hc_bic, p))))
+
+# 3. Junta todos os nós: avós + pais + chuva
+nodos_sub_rede <- unique(c(avos, pais_chuva, target))
+
+# 4. Cria a sub-rede com esses nós
+sub_rede <- bnlearn::subgraph(model_hc_bic, nodos_sub_rede)
+
+
+
+# 5. Converte para igraph para plotar
+g_sub <- as.igraph(sub_rede)
+layout_sub <- layout_with_sugiyama(g_sub)$layout
+
+# 6. Exporta a imagem
+png("C:/Users/Pichau/INMET/Estruturas das Redes Bayesianas/Geral/rede_bayesiana_chuva_pais_avos.png", 
+    width = 1800, height = 1400, res = 150)
+
+plot(
+  g_sub,
+  layout = layout_sub,
+  vertex.label = V(g_sub)$name,
+  vertex.size = 25,
+  vertex.label.cex = 0.6,
+  vertex.label.color = "black",
+  vertex.color = "lightyellow",
+  edge.arrow.size = 0.6,
+  edge.color = "gray30",
+  margin = 0.1,
+  main = "Sub-rede Bayesiana: chuva, pais e avós"
+)
+
+dev.off()
+
+```
+
+
+
+
+# Algumas coisas deixam a rede não causal, exemplo, a variação da radiação na terceira hora ser influenciada pela radiação na segunda hora. 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,287 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+
+
+
+```{r}
+df_reduzido_discretas = read.csv("C:/Users/Pichau/INMET/TODAS_ESTACOES/df_reduzido_discretas_renomeado.csv", header = TRUE, sep = ",")
+df_reduzido_discretas
+```
+
+```{r}
+# Vetor com os novos nomes (na ordem correta das colunas atuais!)
+novos_nomes <- c(
+  "radiation_1h", "radiation_2h", "radiation_3h",
+  "humidity_2h", "humidity_3h", "humidity_1h",
+  "temperature_2h", "temperature_1h", "temperature_3h",
+  "pressure_1h", "pressure_3h", "pressure_2h",
+  "dp_temperature_1h", "dp_temperature_2h", "dp_temperature_3h",
+  "WindSpeed_1h", "WindSpeed_2h", "WindSpeed_3h",
+  "precipitation", "season", "dayperiod"
+)
+
+stopifnot(ncol(df_reduzido_discretas) == length(novos_nomes))
+
+
+names(df_reduzido_discretas) <- novos_nomes
+
+
+names(df_reduzido_discretas)
+```
+
+```{r}
+df_reduzido_discretas
+```
+
+
+```{r}
+# Se for factor:
+levels(df_reduzido_discretas$radiation_2h)
+
+# Alternativa que funciona mesmo se não for factor:
+unique(df_reduzido_discretas$radiation_2h)
+
+# Ver contagem por categoria:
+table(df_reduzido_discretas$radiation_2h, useNA = "ifany")
+
+```
+
+
+```{r}
+df_reduzido_discretas$radiation_1h <- factor(
+  df_reduzido_discretas$radiation_1h,
+  levels = c("baixo ou nenhuma 0",  "Sem medição", "medio", "alto"),
+  labels = c("Night/Zero", "Low", "Moderate", "High")
+)
+
+df_reduzido_discretas$radiation_2h <- factor(
+  df_reduzido_discretas$radiation_2h,
+  levels = c("baixo ou nenhuma 0",  "Sem medição", "medio", "alto"),
+  labels = c("Night/Zero", "Low", "Moderate", "High")
+)
+
+df_reduzido_discretas$radiation_3h <- factor(
+  df_reduzido_discretas$radiation_3h,
+  levels = c("baixo ou nenhuma 0",  "Sem medição", "medio", "alto"),
+  labels = c("Night/Zero", "Low", "Moderate", "High")
+)
+
+```
+
+
+```{r}
+# Se for factor:
+levels(df_reduzido_discretas$humidity_1h)
+
+# Alternativa que funciona mesmo se não for factor:
+unique(df_reduzido_discretas$humidity_1h)
+
+# Ver contagem por categoria:
+table(df_reduzido_discretas$humidity_1h, useNA = "ifany")
+
+```
+
+
+```{r}
+df_reduzido_discretas$humidity_1h <- factor(
+  df_reduzido_discretas$humidity_1h,
+  levels = c("medio",  "alto", "baixo"),
+  labels = c("Moderate", "High", "Low")
+)
+
+df_reduzido_discretas$humidity_2h <- factor(
+  df_reduzido_discretas$humidity_2h,
+  levels = c("medio",  "alto", "baixo"),
+  labels = c("Moderate", "High", "Low")
+)
+
+df_reduzido_discretas$humidity_3h <- factor(
+  df_reduzido_discretas$humidity_3h,
+  levels = c("medio",  "alto", "baixo"),
+  labels = c("Moderate", "High", "Low")
+)
+
+```
+
+```{r}
+# Se for factor:
+levels(df_reduzido_discretas$temperature_1h)
+
+# Alternativa que funciona mesmo se não for factor:
+unique(df_reduzido_discretas$temperature_1h)
+
+# Ver contagem por categoria:
+table(df_reduzido_discretas$temperature_1h, useNA = "ifany")
+
+```
+```{r}
+df_reduzido_discretas$temperature_1h <- factor(
+  df_reduzido_discretas$temperature_1h,
+  levels = c("Medio",  "Alto", "baixo", "Medio/baixo"),
+  labels = c("Moderate", "High", "Low", "Moderate/Low")
+)
+
+df_reduzido_discretas$temperature_2h <- factor(
+  df_reduzido_discretas$temperature_2h,
+  levels = c("Medio",  "Alto", "baixo", "Medio/baixo"),
+  labels = c("Moderate", "High", "Low", "Moderate/Low")
+)
+
+df_reduzido_discretas$temperature_3h <- factor(
+  df_reduzido_discretas$temperature_3h,
+  levels = c("Medio",  "Alto", "baixo", "Medio/baixo"),
+  labels = c("Moderate", "High", "Low", "Moderate/Low")
+)
+
+```
+
+```{r}
+# Se for factor:
+levels(df_reduzido_discretas$pressure_1h)
+
+# Alternativa que funciona mesmo se não for factor:
+unique(df_reduzido_discretas$pressure_1h)
+
+# Ver contagem por categoria:
+table(df_reduzido_discretas$pressure_1h, useNA = "ifany")
+
+```
+
+
+```{r}
+df_reduzido_discretas$pressure_1h <- factor(
+  df_reduzido_discretas$pressure_1h,
+  levels = c("Medio",  "Alto", "Baixo"),
+  labels = c("Moderate", "High", "Low")
+)
+
+df_reduzido_discretas$pressure_2h <- factor(
+  df_reduzido_discretas$pressure_2h,
+  levels = c("Medio",  "Alto", "Baixo"),
+  labels = c("Moderate", "High", "Low")
+)
+
+df_reduzido_discretas$pressure_3h <- factor(
+  df_reduzido_discretas$pressure_3h,
+  levels = c("Medio",  "Alto", "Baixo"),
+  labels = c("Moderate", "High", "Low")
+)
+
+```
+
+
+
+
+```{r}
+# Se for factor:
+levels(df_reduzido_discretas$dp_temperature_1h)
+
+# Alternativa que funciona mesmo se não for factor:
+unique(df_reduzido_discretas$dp_temperature_1h)
+
+# Ver contagem por categoria:
+table(df_reduzido_discretas$dp_temperature_1h, useNA = "ifany")
+
+```
+
+```{r}
+df_reduzido_discretas$dp_temperature_1h <- factor(
+  df_reduzido_discretas$dp_temperature_1h,
+  levels = c("medio",  "alto", "baixo"),
+  labels = c("Moderate", "High", "Low")
+)
+
+df_reduzido_discretas$dp_temperature_2h <- factor(
+  df_reduzido_discretas$dp_temperature_2h,
+  levels = c("medio",  "alto", "baixo"),
+  labels = c("Moderate", "High", "Low")
+)
+
+df_reduzido_discretas$dp_temperature_3h <- factor(
+  df_reduzido_discretas$dp_temperature_3h,
+  levels = c("medio",  "alto", "baixo"),
+  labels = c("Moderate", "High", "Low")
+)
+
+```
+
+```{r}
+# Se for factor:
+levels(df_reduzido_discretas$WindSpeed_1h)
+
+# Alternativa que funciona mesmo se não for factor:
+unique(df_reduzido_discretas$WindSpeed_1h)
+
+# Ver contagem por categoria:
+table(df_reduzido_discretas$WindSpeed_1h, useNA = "ifany")
+
+```
+
+
+```{r}
+df_reduzido_discretas$WindSpeed_1h <- factor(
+  df_reduzido_discretas$WindSpeed_1h,
+  levels = c("medio",  "alto", "baixo"),
+  labels = c("Moderate", "High", "Low")
+)
+
+df_reduzido_discretas$WindSpeed_2h <- factor(
+  df_reduzido_discretas$WindSpeed_2h,
+  levels = c("medio",  "alto", "baixo"),
+  labels = c("Moderate", "High", "Low")
+)
+
+df_reduzido_discretas$WindSpeed_3h <- factor(
+  df_reduzido_discretas$WindSpeed_3h,
+  levels = c("medio",  "alto", "baixo"),
+  labels = c("Moderate", "High", "Low")
+)
+
+```
+
+```{r}
+# Se for factor:
+levels(df_reduzido_discretas$dayperiod)
+
+# Alternativa que funciona mesmo se não for factor:
+unique(df_reduzido_discretas$dayperiod)
+
+# Ver contagem por categoria:
+table(df_reduzido_discretas$dayperiod, useNA = "ifany")
+```
+
+
+```{r}
+df_reduzido_discretas$precipitation <- factor(
+  df_reduzido_discretas$precipitation,
+  levels = c("Sem chuva",  "Chuva", "Chuva Extrema"),
+  labels = c("No rain", "Rain", "Extreme rain")
+)
+
+df_reduzido_discretas$season <- factor(
+  df_reduzido_discretas$season,
+  levels = c("Outono","Inverno","Primavera", "Verão" ),
+  labels = c("autumn","winter","spring","summer")
+)
+
+df_reduzido_discretas$dayperiod <- factor(
+  df_reduzido_discretas$dayperiod,
+  levels = c("Tarde", "Noite", "Manhã"),
+  labels = c("afternoon","night","morning")
+)
+
+```
+
+
+```{r}
+
+write.csv(
+  df_reduzido_discretas,
+  "C:/Users/Pichau/INMET/TODAS_ESTACOES/final_dataset.csv",
+  row.names = FALSE
+)
+
+```

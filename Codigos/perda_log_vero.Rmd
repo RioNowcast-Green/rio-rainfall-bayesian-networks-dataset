@@ -1,0 +1,41 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r}
+library(ggplot2)
+
+# Dados
+metodos <- c("HC - BIC", "HC - AIC", "HC - K2", "HC - BDe")
+loss <- c(12.33, 12.24, 12.25, 12.29)
+
+# Data frame
+dados <- data.frame(Metodo = metodos, Loss = loss)
+
+# Figura (idêntica ao estilo da sua imagem)
+figura = ggplot(dados, aes(x = Metodo, y = Loss)) +
+  geom_point(color = "blue", size = 5) +
+  geom_text(aes(label = sprintf("%.2f", Loss)),
+            vjust = -1, size = 4) +
+  labs(x = "Method", y = "Log-Likelihood Loss") +
+  theme_classic(base_size = 14) +
+  # Mantém o estilo original, mas reduz a escala do eixo y
+  scale_y_continuous(limits = c(12.23, 12.35),
+                     breaks = seq(12.23, 12.35, 0.02)) +
+  theme(
+    axis.text.x = element_text(size = 12),
+    axis.text.y = element_text(size = 12),
+    axis.title.x = element_text(size = 13),
+    axis.title.y = element_text(size = 13)
+  )
+
+# Salva o gráfico na pasta desejada (como PNG)
+ggsave(
+  filename = "funcao_perda.png",          # nome do arquivo
+  plot = figura,                          # objeto do gráfico
+  path = "C:/Users/Pichau/INMET",         # caminho da pasta
+  width = 8, height = 5, dpi = 300        # tamanho e resolução
+)
+
+```

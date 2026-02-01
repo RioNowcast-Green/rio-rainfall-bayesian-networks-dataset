@@ -1,0 +1,557 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+
+
+```{r}
+library(ggplot2)
+library(tidyr)
+library(dplyr)
+
+# Dados
+df <- data.frame(
+  Radiation = factor(c("High", "Moderate", "Low"), levels = c("High", "Moderate", "Low")),
+  No_rain = c( 98.71, 96.81 , 86.73),
+  Rain = c(1.29, 3.17 , 13.19),
+  Extreme_rain = c(0, 0.02 , 0.08)
+)
+
+# Converter para formato longo
+df_long <- df %>%
+  pivot_longer(cols = -Radiation, names_to = "Precipitation", values_to = "Probability")
+
+# Criar rótulos de precipitação para o facet
+df_long$Precipitation <- factor(df_long$Precipitation,
+                                levels = c("No_rain", "Rain", "Extreme_rain"),
+                                labels = c("No Rain", "Rain", "Extreme Rain"))
+
+# Gráfico
+g_rad = ggplot(df_long, aes(x = Probability/100, y = Radiation, fill = Radiation)) +
+  geom_col(width = 0.5, color = "black", alpha = 0.7) +
+  geom_text(aes(label = paste0(Probability, "%")), 
+          hjust = -0.1, size = 3) +
+  facet_wrap(~ Precipitation, ncol = 1, scales = "free_y") +
+  scale_x_continuous(labels = scales::percent_format(accuracy = 1)) +
+  scale_fill_manual(values = c("lightblue2", "skyblue3", "steelblue")) +
+  labs(x = "Conditional Probability", y = "Radiation Level") +
+  theme_minimal(base_size = 12) +
+  theme(
+    panel.grid = element_blank(),
+    strip.background = element_rect(fill = "beige", color = NA),
+    strip.text = element_text(face = "bold"),
+    legend.position = "none",
+    panel.border = element_rect(color = "grey60", fill = NA),
+    axis.title.x = element_text(size = 9),
+    axis.title.y = element_text(size = 9)
+  )
+
+ggsave(
+  filename = "C:/Users/Pichau/INMET/probabilidades_condicionais/cond_prob_radiacao_atualizado.png",
+  plot = g_rad,
+  width = 7,
+  height = 5,
+  dpi = 300,
+  bg = "white"  # 🔥 garante fundo branco no arquivo salvo
+)
+
+
+```
+
+
+```{r}
+g_vento <- ggplot(df_vento_long, aes(x = Probability/100, y = Wind, fill = Wind)) +
+  geom_col(width = 0.5, color = "black", alpha = 0.7) +
+  geom_text(aes(label = paste0(Probability, "%")), 
+            hjust = -0.1, size = 3) +
+  facet_wrap(~ Precipitation, ncol = 1, scales = "free_y") +
+  scale_x_continuous(labels = scales::percent_format(accuracy = 1), limits = c(0, 1.1)) +
+  scale_fill_manual(values = c("lightblue2", "skyblue3", "steelblue")) +
+  labs(x = "Conditional Probability", y = "Wind Speed Level") +
+  theme_light(base_size = 12) +
+  theme(
+    panel.background = element_rect(fill = "white", color = NA),
+    plot.background = element_rect(fill = "white", color = NA),
+    panel.grid = element_blank(),
+    strip.background = element_rect(fill = "beige", color = NA),
+    strip.text = element_text(face = "bold", size = 9, color = "black"),  # CORRIGIDO: cor do título para preto
+    axis.text.x = element_text(size = 8),
+    axis.text.y = element_text(size = 8),
+    axis.title.x = element_text(size = 9),
+    axis.title.y = element_text(size = 9),
+    legend.position = "none",
+    panel.border = element_rect(color = "grey60", fill = NA)
+  )
+
+# Salvar imagem
+ggsave(
+  filename = "C:/Users/Pichau/INMET/probabilidades_condicionais/cond_prob_vento_atualizado.png",
+  plot = g_vento,
+  width = 7,
+  height = 5,
+  dpi = 300,
+  bg = "white"
+)
+
+```
+
+```{r}
+library(ggplot2)
+library(tidyr)
+library(dplyr)
+
+# Dados
+df_umidade <- data.frame(
+  Humidity = factor(c("High", "Moderate", "Low"), levels = c("High", "Moderate", "Low")),
+  
+  No_rain = c(86.61,97.05 , 98.90 ),
+  Rain = c(13.32,2.93 ,1.09 ),
+  Extreme_rain = c(0.07, 0.02, 0.01 )
+  
+  
+)
+
+# Converter para formato longo
+df_umidade_long <- df_umidade %>%
+  pivot_longer(cols = -Humidity, names_to = "Precipitation", values_to = "Probability")
+
+# Ajustar rótulos
+df_umidade_long$Precipitation <- factor(df_umidade_long$Precipitation,
+                                        levels = c("No_rain", "Rain", "Extreme_rain"),
+                                        labels = c("No Rain", "Rain", "Extreme Rain"))
+
+# Criar gráfico
+g_umidade <- ggplot(df_umidade_long, aes(x = Probability/100, y = Humidity, fill = Humidity)) +
+  geom_col(width = 0.5, color = "black", alpha = 0.7) +
+  geom_text(aes(label = paste0(Probability, "%")), 
+            hjust = -0.1, size = 3) +
+  facet_wrap(~ Precipitation, ncol = 1, scales = "free_y") +
+  scale_x_continuous(labels = scales::percent_format(accuracy = 1), limits = c(0, 1.1)) +
+  scale_fill_manual(values = c("lightblue2", "skyblue3", "steelblue")) +
+  labs(x = "Conditional Probability", y = "Relative Humidity Level") +
+  theme_light(base_size = 12) +
+  theme(
+    panel.background = element_rect(fill = "white", color = NA),
+    plot.background = element_rect(fill = "white", color = NA),
+    panel.grid = element_blank(),
+    strip.background = element_rect(fill = "beige", color = NA),
+    strip.text = element_text(face = "bold", size = 9, color = "black"),  # preto
+    axis.text.x = element_text(size = 8),
+    axis.text.y = element_text(size = 8),
+    axis.title.x = element_text(size = 9),
+    axis.title.y = element_text(size = 9),
+    legend.position = "none",
+    panel.border = element_rect(color = "grey60", fill = NA)
+  )
+
+# Salvar imagem
+dir.create("C:/Users/Pichau/INMET/probabilidades_condicionais", showWarnings = FALSE)
+
+ggsave(
+  filename = "C:/Users/Pichau/INMET/probabilidades_condicionais/cond_prob_umidade_atualizado.png",
+  plot = g_umidade,
+  width = 7,
+  height = 5,
+  dpi = 300,
+  bg = "white"
+)
+```
+
+
+
+```{r}
+library(ggplot2)
+library(tidyr)
+library(dplyr)
+
+# ---- Dados ----
+df_rad <- data.frame(
+  
+  Variable = "Radiation",
+  Level = factor(c("High", "Moderate", "Low"), levels = c("High", "Moderate", "Low")),
+  
+  No_rain = c( 98.71, 96.81 , 86.73),
+  Rain = c(1.29, 3.17 , 13.19),
+  Extreme_rain = c(0, 0.02 , 0.08)
+)
+
+df_wind <- data.frame(
+  
+# Atualizado 
+  Variable = "Wind",
+  Level = factor(c("High", "Moderate", "Low"), levels = c("High", "Moderate", "Low")),
+  No_rain = c(92.86, 87.76, 92.47),
+  Rain = c(7.07, 12.14, 7.49),
+  Extreme_rain = c(0.07, 0.10, 0.04)
+)
+
+
+# Atualizado 
+df_hum <- data.frame(
+  Variable = "Humidity",
+  Level = factor(c("High", "Moderate", "Low"), levels = c("High", "Moderate", "Low")),
+  No_rain = c(86.61,97.05 , 98.90 ),
+  Rain = c(13.32,2.93 ,1.09 ),
+  Extreme_rain = c(0.07, 0.02, 0.01 )
+  
+)
+
+# ---- Combina e alonga ----
+df_all_long <- bind_rows(df_rad, df_wind, df_hum) |>
+  pivot_longer(c(No_rain, Rain, Extreme_rain),
+               names_to = "Precipitation", values_to = "Probability") |>
+  mutate(
+    Precipitation = factor(Precipitation,
+                           levels = c("No_rain","Rain","Extreme_rain"),
+                           labels = c("No Rain","Rain","Extreme Rain")),
+    prop = Probability/100,
+    # posição do rótulo, com "empurrão" à direita e clamp no 1.05
+    label_x = pmin(prop + 0.015, 1.05),
+    label_txt = paste0(sprintf("%.2f", Probability), "%")
+  )
+
+# ---- Gráfico combinado com rótulos ----
+g_all <- ggplot(df_all_long, aes(x = prop, y = Level, fill = Level)) +
+  geom_col(width = 0.5, color = "black", alpha = 0.7) +
+  geom_text(aes(x = label_x, label = label_txt),
+            hjust = 0, size = 2.1) +
+  facet_grid(Precipitation ~ Variable, scales = "free_y") +
+  scale_x_continuous(labels = scales::percent_format(accuracy = 1),
+                     limits = c(0, 1.08)) +  # espaço para os rótulos
+  scale_fill_manual(values = c("lightblue2","skyblue3","steelblue")) +
+  labs(x = "Conditional Probability", y = "Level") +
+  theme_light(base_size = 11) +
+  theme(
+    panel.background = element_rect(fill = "white", color = NA),
+    plot.background  = element_rect(fill = "white", color = NA),
+    panel.grid = element_blank(),
+    strip.background = element_rect(fill = "beige", color = NA),
+    strip.text = element_text(face = "bold", size = 9, color = "black"),
+    axis.text.x = element_text(size = 8),
+    axis.text.y = element_text(size = 8),
+    axis.title.x = element_text(size = 9),
+    axis.title.y = element_text(size = 9),
+    legend.position = "none",
+    panel.border = element_rect(color = "grey60", fill = NA)
+  )
+
+ggsave(
+  filename = "C:/Users/Pichau/INMET/probabilidades_condicionais/cond_prob_radiacao_atualizado.png",
+  plot = g_rad,
+  width = 20,      # antes 7
+  height = 12,      # antes 5
+  dpi = 400,       # maior resolução
+  bg = "white"
+)
+
+```
+
+
+
+
+```{r}
+
+library(ggplot2)
+library(tidyr)
+library(dplyr)
+
+# Dados
+dados <- data.frame(
+  Humidity = factor(c("High", "Moderate", "Low"), 
+                    levels = c("Low", "Moderate", "High")),
+  No_rain = c(0.7349, 0.9688, 0.9949),
+  Rain = c(0.2624, 0.0308, 0.0051),
+  Extreme_rain = c(0.0027, 0.0004, 0)
+)
+
+# Converter para formato longo
+dados_long <- dados %>%
+  pivot_longer(cols = -Humidity, names_to = "Precipitation", values_to = "Probability") %>%
+  mutate(Precipitation = factor(Precipitation, 
+                                levels = c("No_rain", "Rain", "Extreme_rain")))
+
+# Paleta inspirada em meteorologia (azul → chuva, azul-claro → sem chuva)
+cores <- c(
+  "No_rain" = "#A7C7E7",       # azul-claro acinzentado
+  "Rain" = "#4A90E2",          # azul médio
+  "Extreme_rain" = "#001F54"   # azul escuro profundo
+)
+
+# Gráfico final
+ggplot(dados_long, aes(x = Humidity, y = Probability, fill = Precipitation)) +
+  geom_bar(stat = "identity", position = position_dodge(width = 0.75), width = 0.6,
+           color = "black", linewidth = 0.2) +
+  geom_text(aes(label = sprintf("%.2f%%", Probability * 100)),
+            position = position_dodge(width = 0.75),
+            vjust = -0.4, size = 3, color = "black", family = "sans") +
+  scale_fill_manual(values = cores,
+                    labels = c("No rain", "Rain", "Extreme rain")) +
+  labs(
+    x = "Humidity level (1h lag)",
+    y = "Conditional probability",
+    fill = "Precipitation",
+    title = ""
+  ) +
+  scale_y_continuous(limits = c(0, 1.05), expand = c(0, 0)) +
+  theme_minimal(base_size = 11) +
+  theme(
+    text = element_text(family = "sans"),
+    plot.title = element_text(hjust = 0.5, size = 11.5, face = "plain"),
+    axis.title = element_text(size = 10),
+    axis.text = element_text(size = 9),
+    legend.position = "top",
+    legend.title = element_text(size = 9),
+    legend.text = element_text(size = 9),
+    panel.grid = element_blank(),
+    panel.border = element_rect(color = "grey60", fill = NA, linewidth = 0.3),
+    axis.line = element_line(color = "grey40", linewidth = 0.3)
+  )
+
+# Salvar com fundo branco
+ggsave(
+  filename = "C:/Users/Pichau/INMET/probabilidades_condicionais/vento_umidade_lag1h.png",
+  width = 6,
+  height = 4,
+  dpi = 300,
+  bg = "white"
+)
+
+
+
+```
+
+
+```{r}
+library(ggplot2)
+library(tidyr)
+library(dplyr)
+
+dados <- data.frame(
+  Humidity = factor(c("Low", "Moderate", "High"), 
+                    levels = c("Low", "Moderate", "High")),
+  
+  No_rain = c(0.9842, 0.9593 , 0.8067),
+  
+  Rain = c(0.0156,0.0404, 0.1925),
+  
+  Extreme_rain = c(0.0002,0.0003 ,0.0008 )
+)
+
+
+# Converter para formato longo
+dados_long <- dados %>%
+  pivot_longer(cols = -Humidity, names_to = "Precipitation", values_to = "Probability") %>%
+  mutate(Precipitation = factor(Precipitation, 
+                                levels = c("No_rain", "Rain", "Extreme_rain")))
+
+# Paleta meteorológica (tons de azul)
+cores <- c(
+  "No_rain" = "#A7C7E7",       # azul-claro
+  "Rain" = "#4A90E2",          # azul médio
+  "Extreme_rain" = "#001F54"   # azul escuro
+)
+
+# Gráfico
+ggplot(dados_long, aes(x = Humidity, y = Probability, fill = Precipitation)) +
+  geom_bar(stat = "identity", position = position_dodge(width = 0.75), width = 0.6,
+           color = "black", linewidth = 0.2) +
+  geom_text(aes(label = sprintf("%.2f%%", Probability * 100)),
+            position = position_dodge(width = 0.75),
+            vjust = -0.4, size = 3, color = "black", family = "sans") +
+  scale_fill_manual(values = cores,
+                    labels = c("No rain", "Rain", "Extreme rain")) +
+  labs(
+    x = "Humidity level (1h lag)",
+    y = "Conditional probability",
+    fill = "Precipitation",
+    title = ""
+  ) +
+  scale_y_continuous(limits = c(0, 1.05), expand = c(0, 0)) +
+  theme_minimal(base_size = 11) +
+  theme(
+    text = element_text(family = "sans"),
+    plot.title = element_text(hjust = 0.5, size = 11.5, face = "plain"),
+    axis.title = element_text(size = 10),
+    axis.text = element_text(size = 9),
+    legend.position = "top",
+    legend.title = element_text(size = 9),
+    legend.text = element_text(size = 9),
+    panel.grid = element_blank(),
+    panel.border = element_rect(color = "grey60", fill = NA, linewidth = 0.3),
+    axis.line = element_line(color = "grey40", linewidth = 0.3)
+  )
+
+# Salvar com fundo branco
+ggsave(
+  filename = "C:/Users/Pichau/INMET/probabilidades_condicionais/radiacao_umidade_lag1h_atualizado.png",
+  width = 6,
+  height = 4,
+  dpi = 300,
+  bg = "white"
+)
+
+```
+
+```{r}
+library(ggplot2)
+library(tidyr)
+library(dplyr)
+
+# Dados
+df_umidade <- data.frame(
+  Humidity = factor(c("High", "Moderate", "Low"), levels = c("High", "Moderate", "Low")),
+  No_rain = c(86.65, 97.03, 98.89),
+  Rain = c(13.32, 2.24, 1.08),
+  Extreme_rain = c(0.03, 0.73, 0.03)
+)
+
+# Converter para formato longo
+df_umidade_long <- df_umidade %>%
+  pivot_longer(cols = -Humidity, names_to = "Precipitation", values_to = "Probability")
+
+# Ajustar rótulos
+df_umidade_long$Precipitation <- factor(df_umidade_long$Precipitation,
+                                        levels = c("No_rain", "Rain", "Extreme_rain"),
+                                        labels = c("No Rain", "Rain", "Extreme Rain"))
+
+# Criar gráfico
+g_umidade <- ggplot(df_umidade_long, aes(x = Probability/100, y = Humidity, fill = Humidity)) +
+  geom_col(width = 0.5, color = "black", alpha = 0.7) +
+  geom_text(aes(label = paste0(Probability, "%")), 
+            hjust = -0.15, size = 4.2, fontface = "bold", color = "black") +  # 🔹 rótulo maior
+  facet_wrap(~ Precipitation, ncol = 1, scales = "free_y") +
+  scale_x_continuous(labels = scales::percent_format(accuracy = 1), 
+                     limits = c(0, 1.25)) +  # 🔹 mais espaço à direita
+  scale_fill_manual(values = c("lightblue2", "skyblue3", "steelblue")) +
+  labs(x = "Conditional Probability", y = "Relative Humidity Level") +
+  theme_light(base_size = 12) +
+  theme(
+    panel.background = element_rect(fill = "white", color = NA),
+    plot.background = element_rect(fill = "white", color = NA),
+    panel.grid = element_blank(),
+    strip.background = element_rect(fill = "beige", color = NA),
+    strip.text = element_text(face = "bold", size = 10, color = "black"),
+    axis.text.x = element_text(size = 9),
+    axis.text.y = element_text(size = 9),
+    axis.title.x = element_text(size = 10),
+    axis.title.y = element_text(size = 10),
+    legend.position = "none",
+    panel.border = element_rect(color = "grey60", fill = NA)
+  )
+
+# Salvar imagem
+dir.create("C:/Users/Pichau/INMET/probabilidades_condicionais", showWarnings = FALSE)
+
+ggsave(
+  filename = "C:/Users/Pichau/INMET/probabilidades_condicionais/cond_prob_umidade.png",
+  plot = g_umidade,
+  width = 7,
+  height = 5,
+  dpi = 300,
+  bg = "white"
+)
+
+
+```
+
+
+
+
+
+
+```{r}
+library(ggplot2)
+library(tidyr)
+library(dplyr)
+
+df_rad <- data.frame(
+  
+  Variable = "Radiation",
+  Level = factor(c("High", "Moderate", "Low"), levels = c("High", "Moderate", "Low")),
+  
+  No_rain = c( 98.71, 96.81 , 86.73),
+  Rain = c(1.29, 3.17 , 13.19),
+  Extreme_rain = c(0, 0.02 , 0.08)
+)
+
+df_wind <- data.frame(
+  
+# Atualizado 
+  Variable = "Wind",
+  Level = factor(c("High", "Moderate", "Low"), levels = c("High", "Moderate", "Low")),
+  No_rain = c(92.86, 87.76, 92.47),
+  Rain = c(7.07, 12.14, 7.49),
+  Extreme_rain = c(0.07, 0.10, 0.04)
+)
+
+
+# Atualizado 
+df_hum <- data.frame(
+  Variable = "Humidity",
+  Level = factor(c("High", "Moderate", "Low"), levels = c("High", "Moderate", "Low")),
+  No_rain = c(86.61,97.05 , 98.90 ),
+  Rain = c(13.32,2.93 ,1.09 ),
+  Extreme_rain = c(0.07, 0.02, 0.01 )
+  
+)
+
+
+# ---- Combina e alonga ----
+df_all_long <- bind_rows(df_rad, df_wind, df_hum) |>
+  pivot_longer(c(No_rain, Rain, Extreme_rain),
+               names_to = "Precipitation", values_to = "Probability") |>
+  mutate(
+    Precipitation = factor(Precipitation,
+                           levels = c("No_rain","Rain","Extreme_rain"),
+                           labels = c("No Rain","Rain","Extreme Rain")),
+    prop = Probability / 100,
+    label_x = pmin(prop + 0.025, 1.25),  # mais espaço para texto
+    label_txt = paste0(sprintf("%.2f", Probability), "%")
+  )
+
+# ---- Gráfico combinado ----
+g_all <- ggplot(df_all_long, aes(x = prop, y = Level, fill = Level)) +
+  geom_col(width = 0.5, color = "black", alpha = 0.8) +
+  geom_text(aes(x = label_x, label = label_txt),
+            hjust = 0, size = 4.2, fontface = "bold", color = "black") +
+  facet_grid(Precipitation ~ Variable, scales = "free_y") +
+  scale_x_continuous(labels = scales::percent_format(accuracy = 1),
+                     limits = c(0, 1.25),  # 🔹 amplia o eixo para não cortar
+                     expand = expansion(mult = c(0, 0.05))) +  # 🔹 garante respiro
+  scale_fill_manual(values = c("lightblue2","skyblue3","steelblue")) +
+  labs(x = "Conditional Probability", y = "Level") +
+  theme_light(base_size = 12) +
+  theme(
+    panel.background = element_rect(fill = "white", color = NA),
+    plot.background  = element_rect(fill = "white", color = NA),
+    panel.grid = element_blank(),
+    strip.background = element_rect(fill = "beige", color = NA),
+    strip.text = element_text(face = "bold", size = 11, color = "black"),
+    axis.text.x = element_text(size = 9),
+    axis.text.y = element_text(size = 9),
+    axis.title.x = element_text(size = 10),
+    axis.title.y = element_text(size = 10),
+    legend.position = "none",
+    panel.border = element_rect(color = "grey60", fill = NA),
+    plot.margin = margin(10, 40, 10, 10)  # 🔹 margem direita maior
+  )
+
+# ---- Salvar imagem ----
+dir.create("C:/Users/Pichau/INMET/probabilidades_condicionais", showWarnings = FALSE)
+
+ggsave(
+  filename = "C:/Users/Pichau/INMET/probabilidades_condicionais/cond_prob_combinado_atualizado.png",
+  plot = g_all,
+  width = 9.5,
+  height = 7,
+  dpi = 400,
+  bg = "white"
+)
+
+
+
+
+```
+
+

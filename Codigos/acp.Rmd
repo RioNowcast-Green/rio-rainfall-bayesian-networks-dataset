@@ -1,0 +1,411 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+
+```{r}
+library(bnlearn)
+library(igraph)
+library(dplyr)
+library(gplots)
+library(Rgraphviz)
+
+```
+
+```{r}
+
+setwd("C:\\Users\\Pichau\\INMET")
+
+df = read.csv("C:/Users/Pichau/INMET/TODAS_ESTACOES/df_variaveis_selecionadas_categoricas.csv", header = TRUE, sep = ",")
+
+df_vc_numerica = read.csv("C:/Users/Pichau/INMET/TODAS_ESTACOES/df_variaveis_continuas.csv", header = TRUE, sep = ",")
+
+df_vc = read.csv("C:/Users/Pichau/INMET/TODAS_ESTACOES/df_variaveis_continuas.csv", header = TRUE, sep = ",")
+
+```
+
+```{r}
+sum(is.na(df))
+sum(is.na(df_vc))
+
+```
+
+# Converter colunas de interesse em fatores
+```{r}
+df[] <- lapply(df, as.factor)
+df_vc[] <- lapply(df_vc, as.factor)
+```
+
+```{r}
+df
+df_vc
+```
+
+```{r}
+# Estrutura 
+dag = hc(df, score = "bic")
+
+# Parametro
+fitted = bn.fit(dag, df)
+
+```
+
+```{r}
+# gerar amostras aleatórias;
+rbn(fitted, n = 10)
+```
+
+```{r}
+# calcular probabilidades com consultas CP;
+
+cpquery(fitted, event = (chuva == "Chuva"), evidence = (umid_valor1 == "alto") & (radiacao_var3 == "alto"))
+
+```
+
+```{r}
+#library(gRain)
+
+# Converter a rede ajustada para gRain
+#rede_grain <- as.grain(fitted)
+
+```
+
+```{r}
+# Inserir evidência
+# rede_grain_evid <- setEvidence(rede_grain, evidence = list(umid_valor1 = "alto", radiacao_var3 = "alto"))
+
+# Consultar distribuição exata de 'chuva'
+# querygrain(rede_grain_evid, nodes = "chuva")
+
+```
+
+```{r}
+# Número máximo de gráficos por tela
+graficos_por_pagina <- 6
+
+# Lista de variáveis
+variaveis <- names(df_vc)
+
+# Loop em blocos
+for (i in seq(1, length(variaveis), by = graficos_por_pagina)) {
+  
+  vars_bloco <- variaveis[i:min(i + graficos_por_pagina - 1, length(variaveis))]
+  
+  par(mfrow = c(2, 3), mar = c(4, 2, 2, 2))  # 6 plots por página: 2 linhas, 3 colunas
+  
+  for (var in vars_bloco) {
+    x <- as.numeric(df_vc[[var]])
+    x <- x[!is.na(x)]
+    
+    hist(x, prob = TRUE, xlab = var, ylab = "", main = "", col = "ivory", border = "gray")
+    
+    if (length(unique(x)) > 1) {
+      lines(density(x), lwd = 2, col = "tomato")
+      curve(dnorm(x, mean = mean(x), sd = sd(x)),
+            from = min(x), to = max(x),
+            add = TRUE, lwd = 2, col = "steelblue")
+    }
+  }
+}
+
+
+```
+
+```{r}
+
+# Calcula a matriz de correlação
+cor_mat <- cor(df_vc_numerica, use = "complete.obs")
+
+# Converte a matriz em formato long (tabela)
+cor_df <- as.data.frame(as.table(cor_mat))
+
+# Remove autocorrelações (mesma variável com ela mesma)
+cor_df <- cor_df[cor_df$Var1 != cor_df$Var2, ]
+
+# Remove duplicatas (A-B e B-A)
+cor_df <- cor_df[!duplicated(t(apply(cor_df[, 1:2], 1, sort))), ]
+
+# Filtra apenas correlações com |r| > 0.15
+cor_maiores_015 <- subset(cor_df, abs(Freq) > 0.7)
+
+# Ordena pela correlação
+cor_maiores_015 <- cor_maiores_015[order(-abs(cor_maiores_015$Freq)), ]
+
+# Mostra a tabela
+print(cor_maiores_015)
+
+
+```
+
+
+```{r}
+
+# Função para normalizar uma coluna
+normalize <- function(x) {
+  return((x - min(x, na.rm = TRUE)) / (max(x, na.rm = TRUE) - min(x, na.rm = TRUE)))
+}
+
+# Aplicar a normalização apenas nas colunas numéricas
+df_normalizado_rb <- df_vc_numerica %>%
+  mutate(across(where(is.numeric), normalize))
+
+print(head(df_normalizado_rb))
+
+```
+
+```{r}
+acp_cov<-prcomp(df_normalizado_rb)
+summary(acp_cov)
+```
+```{r}
+
+library(factoextra)
+library(ggplot2)
+
+# Scree plot (opcional)
+fviz_eig(acp_cov,
+         xlab = "Number of Components",
+         ylab = "Explained Variance (%)",
+         addlabels = TRUE)
+
+# Cálculo da variância explicada
+var_exp <- acp_cov$sdev^2 / sum(acp_cov$sdev^2) * 100
+var_acum <- cumsum(var_exp)
+
+df_pareto <- data.frame(
+  Componente = factor(1:length(var_exp)),
+  Variancia = var_exp,
+  Acumulada = var_acum
+)
+
+df_pareto_limite <- df_pareto[1:10, ]
+
+grafico_pareto <- ggplot(df_pareto_limite, aes(x = Componente)) +
+  geom_bar(aes(y = Variancia), stat = "identity", fill = "skyblue") +
+  geom_line(aes(y = Acumulada), group = 1, color = "red", size = 1) +
+  geom_point(aes(y = Acumulada), color = "red", size = 2) +
+  
+  # 🔹 Rótulos menores
+  geom_text(aes(y = Acumulada, label = sprintf("%.1f%%", Acumulada)),
+            vjust = -0.5,
+            color = "black",
+            size = 6 / .pt,      # 🔽 tamanho reduzido
+            family = "Arial",
+            fontface = "plain") +
+  
+  scale_y_continuous(
+    name = "Explained Variance (%)",
+    sec.axis = sec_axis(~., name = "Cumulative Variance (%)")
+  ) +
+  labs(
+    x = "Principal Component Number",
+    title = ""
+  ) +
+  theme_minimal() +
+  theme(
+    panel.grid = element_blank(),
+    axis.text.y.left = element_blank(),
+    axis.text.y.right = element_blank(),
+    axis.ticks.y = element_blank(),
+    axis.title = element_text(size = 6, family = "Arial"),   # títulos menores
+    axis.text.x = element_text(size = 5, family = "Arial"),  # eixo X menor
+    axis.title.y = element_text(size = 6, family = "Arial"),  # título eixo Y esquerdo
+    axis.title.y.right = element_text(size = 6, family = "Arial"), # título eixo Y direito
+    plot.title = element_text(size = 10, family = "Arial")   # título menor
+    
+    
+  )
+
+# Mostrar o gráfico
+print(grafico_pareto)
+
+# Caminho de saída
+caminho_saida <- "C:/Users/Pichau/INMET/ACP FIGURAS/pareto_pca.png"
+
+caminho_pdf <- "C:/Users/Pichau/INMET/ACP FIGURAS/pareto_pca.pdf"
+
+# Salvar com fundo branco e alta resolução
+ggsave(
+  filename = caminho_saida,
+  plot = grafico_pareto,
+  width = 5,
+  height = 4,
+  dpi = 300,
+  bg = "white"
+)
+
+
+ggsave(
+  filename = caminho_pdf,
+  plot = grafico_pareto,
+  width = 5,
+  height = 4,
+  device = cairo_pdf,   # garante suporte a fontes TrueType (ex: Arial)
+  bg = "white"
+)
+cat("✅ Gráfico salvo com rótulos menores em:", caminho_saida)
+
+
+```
+```{r}
+library(factoextra)
+library(ggplot2)
+
+# Variância explicada
+var_exp  <- acp_cov$sdev^2 / sum(acp_cov$sdev^2) * 100
+df_pareto <- data.frame(
+  Component  = factor(1:length(var_exp)),
+  Variance   = var_exp
+)
+df_pareto_limite <- head(df_pareto, 10)
+
+# Gráfico compacto (somente barras azuis)
+grafico_pareto <- ggplot(df_pareto_limite, aes(x = Component, y = Variance)) +
+  geom_bar(stat = "identity", fill = "skyblue", width = 0.7) +
+
+  # 🔹 Rótulos pequenos nas barras
+  geom_text(aes(label = sprintf("%.1f%%", Variance)),
+            vjust = -0.4,
+            color = "black",
+            size = 4.5 / .pt,
+            family = "Arial") +
+
+  scale_y_continuous(
+    name = "Explained Variance (%)",
+    expand = expansion(mult = c(0, 0.1))  # adiciona um pequeno espaço acima das barras
+  ) +
+  labs(
+    x = "Principal Component",
+    title = ""
+  ) +
+  theme_minimal(base_family = "Arial") +
+  theme(
+    panel.grid = element_blank(),
+    axis.ticks.y = element_blank(),
+    axis.text.y = element_blank(),
+    axis.title.x = element_text(size = 3),
+    axis.title.y = element_text(size = 3),
+    axis.text.x  = element_text(size = 3),
+    plot.title   = element_text(size = 3, face = "bold", hjust = 0.5),
+    plot.margin  = margin(5, 5, 5, 5)
+  )
+
+# Mostrar o gráfico
+print(grafico_pareto)
+
+# Caminhos de saída
+caminho_pdf <- "C:/Users/Pichau/INMET/ACP FIGURAS/pca_barras.pdf"
+caminho_png <- "C:/Users/Pichau/INMET/ACP FIGURAS/pca_barras.png"
+
+# 🔹 Exportar gráfico compacto (1/3 de página)
+ggsave(
+  filename = caminho_pdf,
+  plot = grafico_pareto,
+  width = 2.4,    # ~6,1 cm
+  height = 1.8,   # ~4,6 cm
+  device = cairo_pdf,
+  bg = "white"
+)
+
+ggsave(
+  filename = caminho_png,
+  plot = grafico_pareto,
+  width = 2.4,
+  height = 1.8,
+  dpi = 600,
+  bg = "white"
+)
+
+cat("✅ Gráfico salvo apenas com barras azuis (sem linha vermelha).")
+
+
+```
+
+
+
+
+
+
+
+
+
+
+```{r}
+# Veja os loadings da primeira componente
+acp_cov$rotation[,1]
+
+```
+
+```{r}
+loadings <- acp_cov$rotation
+
+
+variaveis_selecionadas <- unique(c(
+  names(sort(abs(loadings[, 1]), decreasing = TRUE)[1:10]),
+  names(sort(abs(loadings[, 2]), decreasing = TRUE)[1:10]),
+  names(sort(abs(loadings[, 3]), decreasing = TRUE)[1:10]),
+  names(sort(abs(loadings[, 4]), decreasing = TRUE)[1:10]),
+  names(sort(abs(loadings[, 5]), decreasing = TRUE)[1:10])
+ 
+))
+
+variaveis_selecionadas
+
+
+```
+
+
+```{r}
+
+df_reduzido <- df_normalizado_rb[, c(variaveis_selecionadas, "Precip")]
+
+acp_cov<-prcomp(df_reduzido)
+
+summary(acp_cov)
+
+```
+````{r}
+df_reduzido_final <- df_vc_numerica[, c(variaveis_selecionadas, "Precip")]
+
+```
+
+```{r}
+df
+```
+
+
+
+```{r}
+
+# A radiação nao é variação, é o valor absoluto, renomiei errado 
+# Mesma coisa com o vento, renomiei errado
+variaveis_selecionadas = c('radiacao_var1', 'radiacao_var2', 'radiacao_var3',  "umid_valor2",     "umid_valor3",     "umid_valor1",     "temp_valor2",     "temp_valor1",     "temp_valor3",     "pressao_valor1", "pressao_valor3",  "pressao_valor2",  "orvalho_valor1",  "orvalho_valor2", 
+"orvalho_valor3",  "vento_var1",    "vento_var2",    "vento_var3"  )
+
+
+df_reduzido_discretas = df[, c(variaveis_selecionadas, "chuva", 'estacao_ano', 'turno')]
+df_reduzido_discretas
+
+
+```
+
+# Df reduzido salvando 
+```{r}
+#write.csv(df_reduzido_discretas, file = "C:/Users/Pichau/INMET/TODAS_ESTACOES/df_reduzido_discretas.csv", row.names = FALSE)
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+

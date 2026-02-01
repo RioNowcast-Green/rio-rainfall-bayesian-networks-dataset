@@ -1,0 +1,1301 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+
+# Importando bibliotecas
+
+
+```{r}
+library(bnlearn)
+library(igraph)
+library(dplyr)
+library(gplots)
+library(Rgraphviz)
+```
+# Importando os dados
+
+```{r}
+
+setwd("C:\\Users\\Pichau\\INMET")
+
+df_reduzido_discretas = read.csv("C:/Users/Pichau/INMET/TODAS_ESTACOES/df_reduzido_discretas_renomeado.csv", header = TRUE, sep = ",")
+
+df_reduzido_discretas[] <- lapply(df_reduzido_discretas, as.factor)
+
+```
+
+# Renomeando as variaveis
+
+```{r}
+
+df_reduzido_discretas <- df_reduzido_discretas %>%
+  rename(
+    
+    radiacao_atraso1h = radiacao_valor1,
+    radiacao_atraso2h = radiacao_valor2,
+    radiacao_atraso3h = radiacao_valor3,
+    
+    umidade_atraso1h = umid_valor1, 
+    umidade_atraso2h = umid_valor2, 
+    umidade_atraso3h = umid_valor3,
+   
+    temperatura_atraso1h = temp_valor1,
+    temperatura_atraso2h = temp_valor2,
+    temperatura_atraso3h = temp_valor3,
+   
+   pressao_atraso1h = pressao_valor1,
+   pressao_atraso2h = pressao_valor2,
+   pressao_atraso3h = pressao_valor3,
+    
+  temp_orvalho_atraso1h = orvalho_valor1,
+  temp_orvalho_atraso2h = orvalho_valor2,
+  temp_orvalho_atraso3h = orvalho_valor3,
+   
+  vento_atraso1h = vento_valor1,
+  vento_atraso2h = vento_valor2,
+  vento_atraso3h = vento_valor3,
+   
+  chuva = chuva ,
+    
+  estacao_do_ano = estacao_ano,
+   
+  turno = turno
+    
+  )
+
+```
+
+
+# Blacklist
+```{r}
+source("C:\\Users\\Pichau\\INMET\\funcao_blacklist\\blacklist.R")
+# bl
+```
+
+```{r}
+# Conte a quantidade de cada categoria no campo 'chuva'
+contagem_chuva <- df_reduzido_discretas %>%
+  count(chuva)
+
+# Exiba o resultado
+print(contagem_chuva)
+```
+
+
+# Estrutura da Rede Bayesiana hc k2
+```{r}
+rb_k2_hc <- hc(df_reduzido_discretas, blacklist = bl, score = "k2")
+rb_k2_hc
+```
+
+
+# BOOTSTRAP, 300 vezes para calcular a estrutura da rede média hc k2. 
+
+```{r}
+
+str.diff_k2_hc = boot.strength(df_reduzido_discretas, R = 300, algorithm = "hc",
+                             algorithm.args = list(blacklist = bl, score = "k2"))
+
+caminho_csv = "C:/Users/Pichau/INMET/resultado_botst/forca_arestas_hc_k2.csv"
+write.csv(str.diff_k2_hc, caminho_csv, row.names = FALSE)
+
+```
+
+
+# Selecionando a rede média. 
+```{r}
+avg.diff = averaged.network(str.diff_k2_hc)
+avg.diff
+```
+
+
+
+# Criando uma rede mais simples, com força dos arcos maior que 0.85
+```{r}
+avg.simpler = averaged.network(str.diff_k2_hc, threshold =0.85)
+
+avg.simpler
+
+```
+
+
+
+```{r}
+avg.simpler <- bnlearn::drop.arc(avg.simpler, from = "pressao_atraso3h", to = "vento_atraso3h")
+avg.simpler <- bnlearn::drop.arc(avg.simpler, from = "vento_atraso3h", to = "pressao_atraso3h")
+
+
+avg.simpler <- bnlearn::drop.arc(avg.simpler, from = "radiacao_atraso3h", to = "temp_orvalho_atraso3h")
+avg.simpler <- bnlearn::drop.arc(avg.simpler, from = "temp_orvalho_atraso3h", to = "radiacao_atraso3h")
+
+avg.simpler
+```
+
+
+# Ajuste da rede com suavização de Dirichlet
+```{r}
+fitted_avg <- bn.fit(avg.simpler, data = df_reduzido_discretas, method = "bayes", iss = 10)
+
+
+
+```
+
+
+# Markov Blanket
+```{r}
+mb(avg.simpler, "chuva")
+
+```
+
+```{r}
+# Pais de chuva
+parents(avg.simpler, "chuva")
+
+```
+
+```{r}
+pais_chuva <- parents(avg.simpler, "chuva")
+
+
+# Todos os ancestrais de "chuva"
+ancestrais_chuva <- ancestors(avg.simpler, "chuva")
+
+# Avós = ancestrais menos os pais diretos
+avos_chuva <- setdiff(ancestrais_chuva, pais_chuva)
+avos_chuva
+```
+
+
+
+```{r}
+levels(df_reduzido_discretas$chuva)
+
+levels(df_reduzido_discretas$radiacao_valor1)
+
+levels(df_reduzido_discretas$radiacao_valor3)
+
+levels(df_reduzido_discretas$umid_valor1)
+
+levels(df_reduzido_discretas$vento_valor1)
+
+levels(df_reduzido_discretas$turno)
+
+levels(df_reduzido_discretas$estacao_ano)
+
+
+```
+
+
+```{r}
+names(fitted_avg)
+
+```
+
+
+
+```{r}
+cpquery(fitted_avg, (chuva == "Chuva"), (umidade_atraso1h == "alto"))
+
+
+```
+
+```{r}
+cpquery(fitted_avg, (chuva == "Chuva"), (umidade_atraso1h == "alto" & turno == "Tarde"))
+```
+
+```{r}
+# Calcule o número de parâmetros da sua rede
+num_parametros <- nparams(fitted_avg)
+
+# Imprima o resultado
+print(num_parametros)
+
+n_discreta <- 5000 * log10(num_parametros)
+
+# Tamanho da amostra para gerar as probabilidades
+
+# tamanho padrao
+
+```
+
+```{r}
+dim(df_reduzido_discretas)
+
+468811
+
+100000
+```
+
+################################################################################
+
+
+# Continuando daqui 
+
+# (chuva == "Chuva"), (vento_atraso1h == "alto")
+```{r}
+# Número de execuções para a estimativa
+num_execucoes <- 1000
+
+# Vetor para armazenar os resultados
+resultados <- numeric(num_execucoes)
+
+# Loop para executar a consulta várias vezes
+for (i in 1:num_execucoes) {
+  resultados[i] <- cpquery(fitted_avg, (chuva == "Chuva"), (vento_atraso1h == "alto"), n = 100000)
+}
+
+media <- mean(resultados)
+
+desvio_padrao <- sd(resultados)
+erro_padrao <- desvio_padrao / sqrt(num_execucoes)
+
+# Calcule o intervalo de confiança de 95% (usando 1.96 como valor crítico)
+intervalo_inferior <- media - 1.96 * erro_padrao
+intervalo_superior <- media + 1.96 * erro_padrao
+
+# Imprima os resultados
+cat("Estimativa Pontual (Média):", media, "\n")
+cat("Intervalo de Confiança (95%): [", intervalo_inferior, ", ", intervalo_superior, "]\n")
+
+```
+
+
+# (chuva == "Chuva"), (vento_atraso1h == "medio")
+```{r}
+# Número de execuções para a estimativa
+num_execucoes <- 1000
+
+# Vetor para armazenar os resultados
+resultados <- numeric(num_execucoes)
+
+# Loop para executar a consulta várias vezes
+for (i in 1:num_execucoes) {
+  resultados[i] <- cpquery(fitted_avg, (chuva == "Chuva"), (vento_atraso1h == "medio"), n = 100000)
+}
+
+media <- mean(resultados)
+
+desvio_padrao <- sd(resultados)
+erro_padrao <- desvio_padrao / sqrt(num_execucoes)
+
+# Calcule o intervalo de confiança de 95% (usando 1.96 como valor crítico)
+intervalo_inferior <- media - 1.96 * erro_padrao
+intervalo_superior <- media + 1.96 * erro_padrao
+
+# Imprima os resultados
+cat("Estimativa Pontual (Média):", media, "\n")
+cat("Intervalo de Confiança (95%): [", intervalo_inferior, ", ", intervalo_superior, "]\n")
+
+```
+
+
+# (chuva == "Chuva Extrema"), (vento_atraso1h == "baixo") & umidade_atraso1h == "alto"
+```{r}
+# Número de execuções para a estimativa
+num_execucoes <- 1000
+
+# Vetor para armazenar os resultados
+resultados <- numeric(num_execucoes)
+
+# Loop para executar a consulta várias vezes
+for (i in 1:num_execucoes) {
+  resultados[i] <- cpquery(fitted_avg, (chuva == "Chuva"), (vento_atraso1h == "baixo" & umidade_atraso1h == "alto"), n = 100000)
+}
+
+media <- mean(resultados)
+
+desvio_padrao <- sd(resultados)
+erro_padrao <- desvio_padrao / sqrt(num_execucoes)
+
+# Calcule o intervalo de confiança de 95% (usando 1.96 como valor crítico)
+intervalo_inferior <- media - 1.96 * erro_padrao
+intervalo_superior <- media + 1.96 * erro_padrao
+
+# Imprima os resultados
+cat("Estimativa Pontual (Média):", media, "\n")
+cat("Intervalo de Confiança (95%): [", intervalo_inferior, ", ", intervalo_superior, "]\n")
+
+
+```
+
+
+# Continuando daqui 
+
+# (chuva == "Chuva Extrema"), (vento_atraso1h == "alto") & umidade_atraso1h == "alto"
+```{r}
+# Número de execuções para a estimativa
+num_execucoes <- 1000
+
+# Vetor para armazenar os resultados
+resultados <- numeric(num_execucoes)
+
+# Loop para executar a consulta várias vezes
+for (i in 1:num_execucoes) {
+  resultados[i] <- cpquery(fitted_avg, (chuva == "Chuva"), (vento_atraso1h == "alto" & umidade_atraso1h == "alto"), n = 20000)
+}
+
+media <- mean(resultados)
+
+desvio_padrao <- sd(resultados)
+erro_padrao <- desvio_padrao / sqrt(num_execucoes)
+
+# Calcule o intervalo de confiança de 95% (usando 1.96 como valor crítico)
+intervalo_inferior <- media - 1.96 * erro_padrao
+intervalo_superior <- media + 1.96 * erro_padrao
+
+# Imprima os resultados
+cat("Estimativa Pontual (Média):", media, "\n")
+cat("Intervalo de Confiança (95%): [", intervalo_inferior, ", ", intervalo_superior, "]\n")
+
+```
+
+
+# (chuva == "Chuva Extrema"), (vento_atraso1h == "medio") & umidade_atraso1h == "alto"
+```{r}
+# Número de execuções para a estimativa
+num_execucoes <- 1000
+
+# Vetor para armazenar os resultados
+resultados <- numeric(num_execucoes)
+
+# Loop para executar a consulta várias vezes
+for (i in 1:num_execucoes) {
+  resultados[i] <- cpquery(fitted_avg, (chuva == "Chuva"), (vento_atraso1h == "medio" & umidade_atraso1h == "alto"), n = 20000)
+}
+
+media <- mean(resultados)
+
+desvio_padrao <- sd(resultados)
+erro_padrao <- desvio_padrao / sqrt(num_execucoes)
+
+# Calcule o intervalo de confiança de 95% (usando 1.96 como valor crítico)
+intervalo_inferior <- media - 1.96 * erro_padrao
+intervalo_superior <- media + 1.96 * erro_padrao
+
+# Imprima os resultados
+cat("Estimativa Pontual (Média):", media, "\n")
+cat("Intervalo de Confiança (95%): [", intervalo_inferior, ", ", intervalo_superior, "]\n")
+
+```
+```{r}
+library(dplyr)
+
+ %>%
+  filter(vento_atraso1h == "medio", umidade_atraso1h == "alto") %>%
+  count(chuva) %>%
+  mutate(prop = n / sum(n))
+
+```
+
+
+
+# (chuva == "Chuva Extrema"), (vento_atraso1h == "baixo") & umidade_atraso1h == "alto"
+```{r}
+# Número de execuções para a estimativa
+num_execucoes <- 1000
+
+# Vetor para armazenar os resultados
+resultados <- numeric(num_execucoes)
+
+# Loop para executar a consulta várias vezes
+for (i in 1:num_execucoes) {
+  resultados[i] <- cpquery(fitted_avg, (chuva == "Chuva Extrema"), (vento_atraso1h == "baixo" & umidade_atraso1h == "alto"), n = 100000)
+}
+
+media <- mean(resultados)
+
+desvio_padrao <- sd(resultados)
+erro_padrao <- desvio_padrao / sqrt(num_execucoes)
+
+# Calcule o intervalo de confiança de 95% (usando 1.96 como valor crítico)
+intervalo_inferior <- media - 1.96 * erro_padrao
+intervalo_superior <- media + 1.96 * erro_padrao
+
+# Imprima os resultados
+cat("Estimativa Pontual (Média):", media, "\n")
+cat("Intervalo de Confiança (95%): [", intervalo_inferior, ", ", intervalo_superior, "]\n")
+
+
+```
+
+
+# Continuando daqui 
+
+# (chuva == "Chuva Extrema"), (vento_atraso1h == "medio") & umidade_atraso1h == "alto"
+```{r}
+# Número de execuções para a estimativa
+num_execucoes <- 1000
+
+# Vetor para armazenar os resultados
+resultados <- numeric(num_execucoes)
+
+# Loop para executar a consulta várias vezes
+for (i in 1:num_execucoes) {
+  resultados[i] <- cpquery(fitted_avg, (chuva == "Chuva Extrema"), (vento_atraso1h == "medio" & umidade_atraso1h == "alto"), n = 20000)
+}
+
+media <- mean(resultados)
+
+desvio_padrao <- sd(resultados)
+erro_padrao <- desvio_padrao / sqrt(num_execucoes)
+
+# Calcule o intervalo de confiança de 95% (usando 1.96 como valor crítico)
+intervalo_inferior <- media - 1.96 * erro_padrao
+intervalo_superior <- media + 1.96 * erro_padrao
+
+# Imprima os resultados
+cat("Estimativa Pontual (Média):", media, "\n")
+cat("Intervalo de Confiança (95%): [", intervalo_inferior, ", ", intervalo_superior, "]\n")
+
+```
+
+
+# (chuva == "Chuva Extrema"), (vento_atraso1h == "Alto") & umidade_atraso1h == "alto"
+```{r}
+# Número de execuções para a estimativa
+num_execucoes <- 1000
+
+# Vetor para armazenar os resultados
+resultados <- numeric(num_execucoes)
+
+# Loop para executar a consulta várias vezes
+for (i in 1:num_execucoes) {
+  resultados[i] <- cpquery(fitted_avg, (chuva == "Chuva Extrema"), (vento_atraso1h == "alto" & umidade_atraso1h == "alto"), n = 20000)
+}
+
+media <- mean(resultados)
+
+desvio_padrao <- sd(resultados)
+erro_padrao <- desvio_padrao / sqrt(num_execucoes)
+
+# Calcule o intervalo de confiança de 95% (usando 1.96 como valor crítico)
+intervalo_inferior <- media - 1.96 * erro_padrao
+intervalo_superior <- media + 1.96 * erro_padrao
+
+# Imprima os resultados
+cat("Estimativa Pontual (Média):", media, "\n")
+cat("Intervalo de Confiança (95%): [", intervalo_inferior, ", ", intervalo_superior, "]\n")
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# (chuva == "Chuva"), (vento_atraso1h == "baixo")
+```{r}
+# Número de execuções para a estimativa
+num_execucoes <- 1000
+
+# Vetor para armazenar os resultados
+resultados <- numeric(num_execucoes)
+
+# Loop para executar a consulta várias vezes
+for (i in 1:num_execucoes) {
+  resultados[i] <- cpquery(fitted_avg, (chuva == "Chuva"), (vento_atraso1h == "baixo" & umidade_atraso1h == "alto"), n = 20000)
+}
+
+media <- mean(resultados)
+
+desvio_padrao <- sd(resultados)
+erro_padrao <- desvio_padrao / sqrt(num_execucoes)
+
+# Calcule o intervalo de confiança de 95% (usando 1.96 como valor crítico)
+intervalo_inferior <- media - 1.96 * erro_padrao
+intervalo_superior <- media + 1.96 * erro_padrao
+
+# Imprima os resultados
+cat("Estimativa Pontual (Média):", media, "\n")
+cat("Intervalo de Confiança (95%): [", intervalo_inferior, ", ", intervalo_superior, "]\n")
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# (chuva == "Chuva"), (umid_valor1 == "alto")
+```{r}
+# Número de execuções para a estimativa
+num_execucoes <- 1000
+
+# Vetor para armazenar os resultados
+resultados <- numeric(num_execucoes)
+
+# Loop para executar a consulta várias vezes
+for (i in 1:num_execucoes) {
+  resultados[i] <- cpquery(fitted_avg, (chuva == "Chuva"), (umidade_atraso1h == "alto"), n = 100000)
+}
+
+media <- mean(resultados)
+
+desvio_padrao <- sd(resultados)
+erro_padrao <- desvio_padrao / sqrt(num_execucoes)
+
+# Calcule o intervalo de confiança de 95% (usando 1.96 como valor crítico)
+intervalo_inferior <- media - 1.96 * erro_padrao
+intervalo_superior <- media + 1.96 * erro_padrao
+
+# Imprima os resultados
+cat("Estimativa Pontual (Média):", media, "\n")
+cat("Intervalo de Confiança (95%): [", intervalo_inferior, ", ", intervalo_superior, "]\n")
+
+```
+
+# (chuva == "Chuva"), (umid_valor1 == "medio")
+```{r}
+# Número de execuções para a estimativa
+num_execucoes <- 1000
+
+# Vetor para armazenar os resultados
+resultados <- numeric(num_execucoes)
+
+# Loop para executar a consulta várias vezes
+for (i in 1:num_execucoes) {
+  resultados[i] <- cpquery(fitted_avg, (chuva == "Chuva"), (umidade_atraso1h == "medio"), n = 100000)
+}
+
+media <- mean(resultados)
+
+desvio_padrao <- sd(resultados)
+erro_padrao <- desvio_padrao / sqrt(num_execucoes)
+
+# Calcule o intervalo de confiança de 95% (usando 1.96 como valor crítico)
+intervalo_inferior <- media - 1.96 * erro_padrao
+intervalo_superior <- media + 1.96 * erro_padrao
+
+# Imprima os resultados
+cat("Estimativa Pontual (Média):", media, "\n")
+cat("Intervalo de Confiança (95%): [", intervalo_inferior, ", ", intervalo_superior, "]\n")
+
+```
+
+
+
+##### Continuando daqui
+
+
+
+# (chuva == "Chuva"), (umid_valor1 == "baixo")
+```{r}
+# Número de execuções para a estimativa
+num_execucoes <- 1000
+
+# Vetor para armazenar os resultados
+resultados <- numeric(num_execucoes)
+
+# Loop para executar a consulta várias vezes
+for (i in 1:num_execucoes) {
+  resultados[i] <- cpquery(fitted_avg, (chuva == "Chuva"), (umidade_atraso1h == "baixo"), n = 100000)
+}
+
+media <- mean(resultados)
+
+desvio_padrao <- sd(resultados)
+erro_padrao <- desvio_padrao / sqrt(num_execucoes)
+
+# Calcule o intervalo de confiança de 95% (usando 1.96 como valor crítico)
+intervalo_inferior <- media - 1.96 * erro_padrao
+intervalo_superior <- media + 1.96 * erro_padrao
+
+# Imprima os resultados
+cat("Estimativa Pontual (Média):", media, "\n")
+cat("Intervalo de Confiança (95%): [", intervalo_inferior, ", ", intervalo_superior, "]\n")
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+###############################################
+
+
+
+
+
+# Probabilidades 
+
+
+################################################################################
+
+# (chuva == "Sem chuva"), (umid_valor1 == "alto" & turno == "Tarde")
+```{r}
+# Número de execuções para a estimativa
+num_execucoes <- 1000
+
+# Vetor para armazenar os resultados
+resultados <- numeric(num_execucoes)
+
+# Loop para executar a consulta várias vezes
+for (i in 1:num_execucoes) {
+  resultados[i] <- cpquery(fitted_avg, (chuva == "Sem chuva"), (umid_valor1 == "alto" & turno == "Tarde" ), n = 100000)
+}
+
+media <- mean(resultados)
+
+desvio_padrao <- sd(resultados)
+erro_padrao <- desvio_padrao / sqrt(num_execucoes)
+
+# Calcule o intervalo de confiança de 95% (usando 1.96 como valor crítico)
+intervalo_inferior <- media - 1.96 * erro_padrao
+intervalo_superior <- media + 1.96 * erro_padrao
+
+# Imprima os resultados
+cat("Estimativa Pontual (Média):", media, "\n")
+cat("Intervalo de Confiança (95%): [", intervalo_inferior, ", ", intervalo_superior, "]\n")
+
+```
+
+
+# (chuva == "Chuva"), (umid_valor1 == "alto" & turno == "Tarde")
+```{r}
+# Número de execuções para a estimativa
+num_execucoes <- 1000
+
+# Vetor para armazenar os resultados
+resultados <- numeric(num_execucoes)
+
+# Loop para executar a consulta várias vezes
+for (i in 1:num_execucoes) {
+  resultados[i] <- cpquery(fitted_avg, (chuva == "Chuva"), (umid_valor1 == "alto" & turno == "Tarde"), n = 100000)
+}
+
+media <- mean(resultados)
+
+desvio_padrao <- sd(resultados)
+erro_padrao <- desvio_padrao / sqrt(num_execucoes)
+
+# Calcule o intervalo de confiança de 95% (usando 1.96 como valor crítico)
+intervalo_inferior <- media - 1.96 * erro_padrao
+intervalo_superior <- media + 1.96 * erro_padrao
+
+# Imprima os resultados
+cat("Estimativa Pontual (Média):", media, "\n")
+cat("Intervalo de Confiança (95%): [", intervalo_inferior, ", ", intervalo_superior, "]\n")
+
+```
+# (chuva == "Chuva Extrema"), (umid_valor1 == "alto" & turno == "Tarde")
+```{r}
+# Número de execuções para a estimativa
+num_execucoes <- 1000
+
+# Vetor para armazenar os resultados
+resultados <- numeric(num_execucoes)
+
+# Loop para executar a consulta várias vezes
+for (i in 1:num_execucoes) {
+  resultados[i] <- cpquery(fitted_avg, (chuva == "Chuva Extrema"), (umid_valor1 == "alto" & turno == "Tarde"), n = 100000)
+}
+
+media <- mean(resultados)
+
+desvio_padrao <- sd(resultados)
+erro_padrao <- desvio_padrao / sqrt(num_execucoes)
+
+# Calcule o intervalo de confiança de 95% (usando 1.96 como valor crítico)
+intervalo_inferior <- media - 1.96 * erro_padrao
+intervalo_superior <- media + 1.96 * erro_padrao
+
+# Imprima os resultados
+cat("Estimativa Pontual (Média):", media, "\n")
+cat("Intervalo de Confiança (95%): [", intervalo_inferior, ", ", intervalo_superior, "]\n")
+
+```
+
+################################################################################
+
+
+# (chuva == "Sem chuva"), (umid_valor1 == "alto" & turno == "Noite" & estacao_ano == "Verão" & vento_valor1 == "alto")
+
+```{r}
+# Número de execuções para a estimativa
+num_execucoes <- 1000
+
+# Vetor para armazenar os resultados
+resultados <- numeric(num_execucoes)
+
+# Loop para executar a consulta várias vezes
+for (i in 1:num_execucoes) {
+  resultados[i] <- cpquery(fitted_avg, (chuva == "Sem chuva"), (umid_valor1 == "alto" & turno == "Noite" & estacao_ano == "Verão" & vento_valor1 == "alto"), n = 100000)
+}
+
+media <- mean(resultados)
+
+desvio_padrao <- sd(resultados)
+erro_padrao <- desvio_padrao / sqrt(num_execucoes)
+
+# Calcule o intervalo de confiança de 95% (usando 1.96 como valor crítico)
+intervalo_inferior <- media - 1.96 * erro_padrao
+intervalo_superior <- media + 1.96 * erro_padrao
+
+# Imprima os resultados
+cat("Estimativa Pontual (Média):", media, "\n")
+cat("Intervalo de Confiança (95%): [", intervalo_inferior, ", ", intervalo_superior, "]\n")
+
+```
+
+
+# (chuva == "Chuva"), (umid_valor1 == "alto" & turno == "Noite" & estacao_ano == "Verão" & vento_valor1 == "alto")
+
+```{r}
+# Número de execuções para a estimativa
+num_execucoes <- 1000
+
+# Vetor para armazenar os resultados
+resultados <- numeric(num_execucoes)
+
+# Loop para executar a consulta várias vezes
+for (i in 1:num_execucoes) {
+  resultados[i] <- cpquery(fitted_avg, (chuva == "Chuva"), (umid_valor1 == "alto" & turno == "Noite" & estacao_ano == "Verão" & vento_valor1 == "alto"), n = 100000)
+}
+
+media <- mean(resultados)
+
+desvio_padrao <- sd(resultados)
+erro_padrao <- desvio_padrao / sqrt(num_execucoes)
+
+# Calcule o intervalo de confiança de 95% (usando 1.96 como valor crítico)
+intervalo_inferior <- media - 1.96 * erro_padrao
+intervalo_superior <- media + 1.96 * erro_padrao
+
+# Imprima os resultados
+cat("Estimativa Pontual (Média):", media, "\n")
+cat("Intervalo de Confiança (95%): [", intervalo_inferior, ", ", intervalo_superior, "]\n")
+
+```
+
+
+# (chuva == "Chuva Extrema""), (umid_valor1 == "alto" & turno == "Noite" & estacao_ano == "Verão" & vento_valor1 == "alto")
+
+```{r}
+# Número de execuções para a estimativa
+num_execucoes <- 1000
+
+# Vetor para armazenar os resultados
+resultados <- numeric(num_execucoes)
+
+# Loop para executar a consulta várias vezes
+for (i in 1:num_execucoes) {
+  resultados[i] <- cpquery(fitted_avg, (chuva == "Chuva Extrema"), (umid_valor1 == "alto" & turno == "Noite" & estacao_ano == "Verão" & vento_valor1 == "alto"), n = 100000)
+}
+
+media <- mean(resultados)
+
+desvio_padrao <- sd(resultados)
+erro_padrao <- desvio_padrao / sqrt(num_execucoes)
+
+# Calcule o intervalo de confiança de 95% (usando 1.96 como valor crítico)
+intervalo_inferior <- media - 1.96 * erro_padrao
+intervalo_superior <- media + 1.96 * erro_padrao
+
+# Imprima os resultados
+cat("Estimativa Pontual (Média):", media, "\n")
+cat("Intervalo de Confiança (95%): [", intervalo_inferior, ", ", intervalo_superior, "]\n")
+
+```
+################################################################################
+
+# (chuva == "Sem chuva"), (umid_valor1 == "baixo" & turno == "manhã" & estacao_ano == "Inverno" & vento_valor1 == "baixo")
+
+```{r}
+# Número de execuções para a estimativa
+num_execucoes <- 1000
+
+# Vetor para armazenar os resultados
+resultados <- numeric(num_execucoes)
+
+# Loop para executar a consulta várias vezes
+for (i in 1:num_execucoes) {
+  resultados[i] <- cpquery(fitted_avg, (chuva == "Sem chuva"), (umid_valor1 == "baixo" & turno == "Manhã" & estacao_ano == "Inverno" & vento_valor1 == "baixo"), n = 100000)
+}
+
+media <- mean(resultados)
+
+desvio_padrao <- sd(resultados)
+erro_padrao <- desvio_padrao / sqrt(num_execucoes)
+
+# Calcule o intervalo de confiança de 95% (usando 1.96 como valor crítico)
+intervalo_inferior <- media - 1.96 * erro_padrao
+intervalo_superior <- media + 1.96 * erro_padrao
+
+# Imprima os resultados
+cat("Estimativa Pontual (Média):", media, "\n")
+cat("Intervalo de Confiança (95%): [", intervalo_inferior, ", ", intervalo_superior, "]\n")
+
+```
+
+# (chuva == "Chuva"), (umid_valor1 == "baixo" & turno == "manhã" & estacao_ano == "Inverno" & vento_valor1 == "baixo")
+
+```{r}
+# Número de execuções para a estimativa
+num_execucoes <- 1000
+
+# Vetor para armazenar os resultados
+resultados <- numeric(num_execucoes)
+
+# Loop para executar a consulta várias vezes
+for (i in 1:num_execucoes) {
+  resultados[i] <- cpquery(fitted_avg, (chuva == "Chuva"), (umid_valor1 == "baixo" & turno == "Manhã" & estacao_ano == "Inverno" & vento_valor1 == "baixo"), n = 100000)
+}
+
+media <- mean(resultados)
+
+desvio_padrao <- sd(resultados)
+erro_padrao <- desvio_padrao / sqrt(num_execucoes)
+
+# Calcule o intervalo de confiança de 95% (usando 1.96 como valor crítico)
+intervalo_inferior <- media - 1.96 * erro_padrao
+intervalo_superior <- media + 1.96 * erro_padrao
+
+# Imprima os resultados
+cat("Estimativa Pontual (Média):", media, "\n")
+cat("Intervalo de Confiança (95%): [", intervalo_inferior, ", ", intervalo_superior, "]\n")
+
+```
+```{r}
+# Lista todos os nós do seu modelo
+nodes(fitted_avg)
+```
+
+
+########################################################################################################################################################
+
+
+
+```{r}
+# Acessar a CPT da variável 'chuva'
+cpt_chuva <- fitted_avg$chuva$prob
+
+# Converter a CPT em data.frame
+df_chuva <- as.data.frame.table(cpt_chuva, responseName = "Prob")
+
+# Filtrar apenas as linhas em que chuva == "Chuva Extrema"
+df_chuva_extrema <- subset(df_chuva, chuva == "Chuva")
+
+# Ordenar pelas maiores probabilidades
+df_chuva_extrema <- df_chuva_extrema[order(-df_chuva_extrema$Prob), ]
+
+# Ver as top configurações
+head(df_chuva_extrema, 10)
+
+
+```
+
+
+
+
+
+
+
+
+
+# Faz sentido o numero ser baixo, radiacao_valor3 == "alto"  de manhã é uma observação dificil de acontecer. 
+```{r}
+# Número de execuções para a estimativa
+num_execucoes <- 1000
+
+# Vetor para armazenar os resultados
+resultados <- numeric(num_execucoes)
+
+# Loop para executar a consulta várias vezes
+for (i in 1:num_execucoes) {
+  resultados[i] <- cpquery(fitted_avg, (chuva == "Chuva"), (radiacao_valor1 == "medio" & radiacao_valor3 == "alto" & umid_valor1 == "alto" & vento_valor1 == "alto" & turno == "Manhã"), n = 100000)
+}
+
+media <- mean(resultados)
+
+desvio_padrao <- sd(resultados)
+erro_padrao <- desvio_padrao / sqrt(num_execucoes)
+
+# Calcule o intervalo de confiança de 95% (usando 1.96 como valor crítico)
+intervalo_inferior <- media - 1.96 * erro_padrao
+intervalo_superior <- media + 1.96 * erro_padrao
+
+# Imprima os resultados
+cat("Estimativa Pontual (Média):", media, "\n")
+cat("Intervalo de Confiança (95%): [", intervalo_inferior, ", ", intervalo_superior, "]\n")
+
+```
+
+####################### ####################### 
+####################### ####################### 
+####################### ####################### 
+####################### ####################### 
+####################### ####################### 
+####################### ####################### 
+####################### Combinações ####################### 
+
+
+```{r}
+variaveis_preditoras <- names(df_reduzido_discretas)[names(df_reduzido_discretas) != "chuva"]
+variaveis_preditoras
+# 20 NÓS. 
+
+niveis_variaveis <- list()
+for (var in variaveis_preditoras) {
+  # Use unique() para pegar os valores únicos de forma segura
+  niveis_variaveis[[var]] <- unique(df_reduzido_discretas[[var]])
+}
+
+niveis_variaveis
+
+```
+```{r}
+# radiacao_valor1, radiacao_valor2, radiacao_valor3 (Cada uma com 4 categorias)
+# umid_valor1, umid_valor2, umid_valor3 (Cada uma com 3 categorias.)
+# temp_valor1, temp_valor2, temp_valor3, temp_valor4 (Cada uma com 4 categorias)
+# pressao_valor1, pressao_valor2, pressao_valor3 (cada uma com 3 categorias)
+# orvalho_valor1, orvalho_valor2, orvalho_valor3 (Cada uma com 3 categorias)
+# vento_valor1, vento_valor2, vento_valor1 (Cada uma com 3 categorias)
+# estacao_ano (4 categorias)
+# turno (3 categorias)
+
+#4!4!4! 3!3!3! 4!4!4! 3!3!3! 3!3!3! 3!3!3! 4! 30! 
+  
+#3!^13
+#4!^7
+
+
+# Calcular o fatorial de 4 e 3
+fatorial_4 <- factorial(4) # 24
+fatorial_3 <- factorial(3) # 6
+
+# Calcular a expressão completa
+resultado <- (fatorial_4^7) * (fatorial_3^10)
+print(resultado)
+
+
+# Impossivel fazer valores de combinações. 
+
+```
+
+####################### ####################### 
+####################### ####################### 
+####################### ####################### 
+####################### ####################### 
+####################### ####################### 
+####################### ####################### 
+####################### ####################### 
+####################### ####################### 
+####################### ####################### 
+####################### ####################### 
+####################### ####################### 
+
+
+# Pais de chuva
+```{r}
+parents(avg.simpler, "chuva")
+```
+
+avos_chuva
+```{r}
+pais_chuva <- parents(avg.simpler, "chuva")
+
+ancestrais_chuva <- ancestors(avg.simpler, "chuva")
+
+avos_chuva <- setdiff(ancestrais_chuva, pais_chuva)
+avos_chuva
+```
+
+# Todos os arcos da Rede Bayesiana
+```{r}
+arcs(fitted_avg)
+
+# Extrair arcos
+arcos <- arcs(fitted_avg)
+
+# Converter para data.frame
+df_arcos <- as.data.frame(arcos)
+
+# Salvar em CSV
+write.csv(df_arcos, "arcos_rede_bayesiana.csv", row.names = FALSE)
+
+# Conferir
+head(df_arcos)
+
+```
+
+
+```{r}
+# Recalcular a probabilidade usando cpquery para uma das combinações
+prob_cpquery <- cpquery(fitted_avg,
+                        event = (chuva == "Chuva Extrema"),
+                        evidence = (radiacao_valor1 == "alto" ),
+                        n = 100000)
+
+print(prob_cpquery)
+
+
+# "radiacao_valor1" "radiacao_valor3" "umid_valor1"     "vento_valor1"    "turno" "estacao_ano"     
+```
+
+
+####################### ####################### 
+####################### ####################### 
+####################### ####################### 
+####################### ####################### 
+####################### ####################### 
+####################### ####################### 
+####################### ####################### 
+####################### ####################### 
+####################### ####################### 
+####################### ####################### 
+####################### ####################### 
+
+
+
+
+
+```{r}
+
+# gera todas as combinações possíveis
+variaveis_para_analise <- c("radiacao_valor1",
+                            "umid_valor1", 
+                            "vento_valor1", 
+                            "turno", 
+                            "estacao_ano")
+
+niveis_variaveis <- list()
+for (var in variaveis_para_analise) {
+  niveis_variaveis[[var]] <- unique(df_reduzido_discretas[[var]])
+}
+
+combinacoes <- expand.grid(niveis_variaveis, stringsAsFactors = FALSE)
+
+# vetor para guardar os resultados
+resultados <- numeric(nrow(combinacoes))
+
+# loop sobre cada combinação
+for (i in seq_len(nrow(combinacoes))) {
+  # monta a evidência como lista
+  evidencia <- as.list(combinacoes[i, ])
+  
+  # cpquery precisa receber lista de evidências (nome=valor)
+  resultados[i] <- cpquery(
+    fitted = fitted_avg,
+    event = (chuva == "Chuva"),
+    evidence = evidencia,
+    method = "lw",   # likelihood weighting
+    n = 10000        # amostras (aumente se precisar de mais precisão)
+  )
+}
+
+# adiciona as probabilidades no dataframe de combinações
+combinacoes$prob_chuva <- resultados
+
+# visualizar
+head(combinacoes)
+
+```
+
+
+
+```{r}
+combinacoes
+```
+
+```{r}
+combinacoes_ordenado <- combinacoes[order(combinacoes$prob_chuva, decreasing = TRUE), ]
+combinacoes_ordenado
+
+```
+
+```{r}
+# filtra os casos que satisfazem a condição
+subset_cond <- subset(df_reduzido_discretas,
+                      radiacao_valor1 == "alto" &
+                      radiacao_valor3 == "Sem medição" &
+                      umid_valor1 == "baixo" &
+                      vento_valor1 == "baixo" &
+                      turno == "Noite" &
+                      estacao_ano == "Outono")
+
+# conta quantos são chuva e quantos não
+table(subset_cond$chuva)
+
+```
+
+# Casos que não existe nenhuma ocorrencia, o modelo atribui probabilidade igual de ocorrencia. 
+
+
+
+
+# Casos que satisfazem o filtro. 
+```{r}
+table(df_reduzido_discretas$chuva[
+  df_reduzido_discretas$radiacao_valor1 == "alto" &
+  df_reduzido_discretas$umid_valor1 == "baixo" &
+  df_reduzido_discretas$turno == "Noite"
+])
+
+```
+
+# Problemas de overfiting em situações que não ocorrem: 
+
+# CHATGPT 
+
+4.X Limitações do modelo em combinações não observadas
+
+Durante a análise da rede bayesiana ajustada para a previsão de chuva, observou-se que algumas combinações de variáveis meteorológicas nunca ocorreram no conjunto de dados disponível. Por exemplo, ao considerar a configuração:
+
+radiacao_valor1 = "alto"
+
+radiacao_valor3 = "Sem medição"
+
+umid_valor1 = "baixo"
+
+vento_valor1 = "baixo"
+
+turno = "Noite"
+
+estacao_ano = "Outono"
+
+não foram encontradas ocorrências correspondentes no conjunto de dados (df_reduzido_discretas).
+
+Essa situação apresenta um desafio para o cálculo de probabilidades condicionais na rede bayesiana. Redes ajustadas pelo método de máxima verossimilhança (MLE) atribuem probabilidade 0 ou 1 a eventos que não foram observados ou que sempre ocorreram, respectivamente. Esse efeito é conhecido como overfitting a combinações raras ou inexistentes.
+
+Para contornar esse problema, foi utilizado o ajuste bayesiano com suavização por pseudo-contagens (ISS = 10). Esse procedimento adiciona um “peso imaginário” uniforme a todas as possíveis categorias da variável alvo, evitando que combinações nunca observadas gerem probabilidades determinísticas. Mesmo assim, algumas probabilidades podem se aproximar de valores extremos se o ISS for pequeno em relação à escala dos dados ou se os estados de evidência forem altamente raros.
+
+Dessa forma, é importante interpretar com cautela as probabilidades estimadas para combinações de evidências que não existem no conjunto amostral, pois elas refletem uma inferência baseada em prior uniforme, e não na ocorrência real observada. Esse fenômeno evidencia uma limitação inerente à modelagem bayesiana com dados discretos e conjuntos amostrais finitos.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,350 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+# Importando bibliotecas
+
+```{r}
+library(bnlearn)
+library(igraph)
+library(dplyr)
+library(gplots)
+library(Rgraphviz)
+library(dplyr)
+library(ROSE)
+```
+
+
+# Importando os dados
+
+```{r}
+
+setwd("C:\\Users\\Pichau\\INMET")
+
+df_reduzido_discretas = read.csv("C:/Users/Pichau/INMET/TODAS_ESTACOES/df_reduzido_discretas_renomeado.csv", header = TRUE, sep = ",")
+
+df_reduzido_discretas[] <- lapply(df_reduzido_discretas, as.factor)
+
+```
+
+# Blacklist
+```{r}
+source("C:\\Users\\Pichau\\INMET\\funcao_blacklist\\blacklist.R")
+# bl
+```
+
+# Estrutura da Rede Bayesiana TABU bde
+```{r}
+rb_bde_TABU <- tabu(df_reduzido_discretas, blacklist = bl, score = "bde")
+rb_bde_TABU
+```
+
+
+# BOOTSTRAP, 300 vezes para calcular a estrutura da rede média tabu bde. 
+
+```{r}
+
+str.diff_bde_TABU = boot.strength(df_reduzido_discretas, R = 300, algorithm = "tabu",
+                             algorithm.args = list(blacklist = bl, score = "bde"))
+
+caminho_csv = "C:/Users/Pichau/INMET/resultado_botst/forca_arestas_tabu_bde.csv"
+write.csv(str.diff_bde_TABU, caminho_csv, row.names = FALSE)
+
+```
+
+
+######## Começando daqui $
+
+# Define o  minimo para dizer se um arco é forte o suficiente. 
+```{r}
+attr(str.diff_bde_TABU, "threshold")
+
+```
+
+
+# Selecionando a rede média. 
+```{r}
+avg.diff = averaged.network(str.diff_bde_TABU)
+avg.diff
+```
+
+
+# Gráfico da força dos arcos. 
+```{r}
+plot(str.diff_bde_TABU)
+
+abline(v = 0.75, col = "darkorange", lty = 2, lwd = 2) 
+abline(v = 0.85, col = "darkgreen", lty = 2, lwd = 2)  
+
+```
+
+
+
+# Criando uma rede mais simples, com força dos arcos maior que 0.85
+```{r}
+avg.simpler = averaged.network(str.diff_bde_TABU, threshold =0.85)
+
+avg.simpler
+
+```
+
+```{r}
+g <- as.igraph(avg.simpler)
+
+
+layout_sugi <- layout_with_sugiyama(g)$layout
+
+png("C:/Users/Pichau/INMET/Estruturas das Redes Bayesianas/tabu_bde/rede_média_tabu_bde.png", 
+    width = 2000, height = 1600, res = 150)
+
+plot(
+  g,layout = layout_sugi,vertex.label = V(g)$name,vertex.size = 12,vertex.label.cex = 0.4,vertex.label.color = "black",vertex.color = "lightblue",edge.arrow.size = 0.5,
+  edge.color = "gray40",margin = 0.1,main = "Rede Média tabu - bde"
+)
+
+dev.off()
+
+```
+
+
+
+################# Continuando daqui     ################# 
+
+
+
+
+
+
+
+
+
+
+
+# Avaliação do desempenho preditivo. 
+
+
+```{r}
+df_reduzido_discretas$precip <- NA
+  
+# Preencher 'precip' com base nas condições da coluna 'chuva'
+df_reduzido_discretas$precip[df_reduzido_discretas$chuva == "Sem chuva"] <- "Sem chuva"
+df_reduzido_discretas$precip[df_reduzido_discretas$chuva == "Chuva" | df_reduzido_discretas$chuva == "Chuva Extrema"] <- "Chuva"
+
+```
+
+```{r}
+
+df_chuva <- df_reduzido_discretas %>%
+  select(-chuva)
+
+```
+
+
+# Separando em treino e teste. 
+```{r}
+
+set.seed(10)
+
+proporcao_treino = 0.90
+
+# Calcular o número de linhas para o conjunto de treino
+tamanho_treino <- floor(proporcao_treino * nrow(df_chuva))
+
+# Gerar índices aleatórios para as linhas do conjunto de treino
+indices_treino <- sample(seq_len(nrow(df_chuva)), size = tamanho_treino)
+
+# Criar o conjunto de treino
+df_chuva_treino <- df_chuva[indices_treino, ]
+
+# Criar o conjunto de teste (todas as linhas que não estão no treino)
+df_chuva_teste <- df_chuva[-indices_treino, ]
+
+# Verificar as dimensões dos novos data frames
+cat("Dimensões do conjunto de treino:", dim(df_chuva_treino), "\n")
+cat("Dimensões do conjunto de teste:", dim(df_chuva_teste), "\n")
+
+
+```
+
+```{r}
+table(df_chuva_treino$precip)
+```
+
+# balanceando 
+```{r}
+
+set.seed(123)
+
+library(ROSE)
+
+# 1. Verificar a contagem atual das classes na coluna 'precip'
+cat("Contagem de classes antes do undersampling:\n")
+print(table(df_chuva_treino$precip))
+
+# 2. Aplicar undersampling
+# O N será o dobro do tamanho da classe "Chuva" (33693 * 2 = 67386)
+# Isso porque teremos 33693 de Chuva + 33693 de Sem Chuva
+target_count_chuva <- as.numeric(table(df_chuva_treino$precip)["Chuva"])
+total_samples_desired <- target_count_chuva * 2 # 33693 Chuva + 33693 Sem chuva
+
+df_chuva_treino_balanceado <- ovun.sample(
+  precip ~ .,             # Fórmula: 'precip' é a variável resposta, '.' significa todas as outras
+  data = df_chuva_treino, # Seu dataframe de treino
+  method = "under",       # Especifica o método de undersampling
+  N = total_samples_desired, # O número total de amostras desejadas no dataframe balanceado
+  seed = 456              # Para reprodutibilidade da amostragem
+)$data # A função ovun.sample retorna uma lista, você precisa do elemento $data
+
+# 3. Verificar as novas contagens de classes após o undersampling
+cat("\nContagem de classes após o undersampling:\n")
+print(table(df_chuva_treino_balanceado$precip))
+
+# 4. Verificar as dimensões do novo dataframe
+cat("\nDimensões do df_chuva_treino_balanceado:", dim(df_chuva_treino_balanceado), "\n")
+
+```
+```{r}
+
+df_chuva_treino_balanceado[] <- lapply(df_chuva_treino_balanceado, as.factor)
+
+names(df_chuva_treino_balanceado)[names(df_chuva_treino_balanceado) == "precip"] <- "chuva"
+
+
+df_chuva_teste[] <- lapply(df_chuva_teste, as.factor)
+
+names(df_chuva_teste)[names(df_chuva_teste) == "precip"] <- "chuva"
+
+
+df_chuva[] <- lapply(df_chuva, as.factor)
+names(df_chuva)[names(df_chuva) == "precip"] <- "chuva"
+
+
+```
+
+
+```{r}
+# Criando a estrutura.
+model_tabu_bde_chuva  <- tabu(df_chuva_treino_balanceado, blacklist = bl, score = "bde")
+
+# treinando os parâmetros. 
+
+fitted_model_chuva <- bn.fit(model_tabu_bde_chuva, df_chuva_treino_balanceado)
+
+predicoes_precip_chuva <- predict(fitted_model_chuva, node = "chuva", data = df_chuva_teste)
+
+
+```
+
+```{r}
+valores_reais <- df_chuva_teste$chuva
+
+levels_ordenados <- c("Sem chuva", "Chuva") 
+
+predicoes_filtradas <- factor(predicoes_precip_chuva, levels = levels_ordenados)
+
+reais_filtrados <- factor(valores_reais, levels = levels_ordenados)
+
+# Identificar os índices onde AMBOS os valores (previsto e real) NÃO são NA
+indices_validos <- !is.na(predicoes_filtradas) & !is.na(reais_filtrados)
+
+# Aplicar a filtragem
+predicoes_filtradas <- predicoes_filtradas[indices_validos]
+reais_filtrados <- reais_filtrados[indices_validos]
+
+# Se após a filtragem não houver dados válidos, pare e notifique
+if (length(predicoes_filtradas) == 0) {
+  stop("Não há dados válidos para calcular as métricas após a remoção de NAs.")
+}
+
+# 3. Criar a Matriz de Confusão
+# As linhas da matriz serão as predições e as colunas serão os valores reais.
+matriz_confusao <- table(Predicted = predicoes_filtradas, Actual = reais_filtrados)
+
+cat("Matriz de Confusão:\n")
+print(matriz_confusao)
+cat("\n")
+
+# 4. Definir a classe positiva e negativa para os cálculos das métricas
+# A classe 'Chuva' é geralmente a classe de interesse ('positiva') para problemas de precipitação.
+classe_positiva <- "Chuva"
+classe_negativa <- "Sem chuva"
+
+# 5. Extrair os componentes da matriz de confusão de forma segura
+# Inicializa as contagens para 0, caso alguma célula não exista na matriz (ex: nunca previu uma classe)
+TP <- 0 # True Positives: Previsto Chuva, Real Chuva
+FP <- 0 # False Positives: Previsto Chuva, Real Sem chuva
+FN <- 0 # False Negatives: Previsto Sem chuva, Real Chuva
+TN <- 0 # True Negatives: Previsto Sem chuva, Real Sem chuva
+
+if (classe_positiva %in% rownames(matriz_confusao) && classe_positiva %in% colnames(matriz_confusao)) {
+  TP <- matriz_confusao[classe_positiva, classe_positiva]
+}
+if (classe_positiva %in% rownames(matriz_confusao) && classe_negativa %in% colnames(matriz_confusao)) {
+  FP <- matriz_confusao[classe_positiva, classe_negativa]
+}
+if (classe_negativa %in% rownames(matriz_confusao) && classe_positiva %in% colnames(matriz_confusao)) {
+  FN <- matriz_confusao[classe_negativa, classe_positiva]
+}
+if (classe_negativa %in% rownames(matriz_confusao) && classe_negativa %in% colnames(matriz_confusao)) {
+  TN <- matriz_confusao[classe_negativa, classe_negativa]
+}
+
+# 6. Calcular as Métricas:
+
+# Acurácia
+total_observacoes <- sum(TP, FP, FN, TN)
+acuracia <- sum(TP, TN) / total_observacoes
+cat("Acurácia (Proporção de Acertos):", round(acuracia, 4), "\n")
+
+# Sensibilidade (Recall / True Positive Rate) - Para a classe positiva
+sensibilidade <- TP / sum(TP, FN)
+if (is.nan(sensibilidade)) sensibilidade <- 0 # Evita NaN se sum(TP, FN) for 0
+cat("Sensibilidade (Recall para '", classe_positiva, "'):", round(sensibilidade, 4), "\n")
+
+# Especificidade (True Negative Rate) - Para a classe negativa
+especificidade <- TN / sum(TN, FP)
+if (is.nan(especificidade)) especificidade <- 0 # Evita NaN se sum(TN, FP) for 0
+cat("Especificidade (para '", classe_negativa, "'):", round(especificidade, 4), "\n")
+
+# Precisão (Positive Predictive Value) - Para a classe positiva
+precisao <- TP / sum(TP, FP)
+if (is.nan(precisao)) precisao <- 0 # Evita NaN se sum(TP, FP) for 0
+cat("Precisão (para '", classe_positiva, "'):", round(precisao, 4), "\n")
+
+# F1-Score - Média harmônica de Sensibilidade e Precisão para a classe positiva
+f1_score <- 2 * ((precisao * sensibilidade) / (precisao + sensibilidade))
+if (is.nan(f1_score)) f1_score <- 0 # Evita NaN se (precisao + sensibilidade) for 0
+cat("F1-Score (para '", classe_positiva, "'):", round(f1_score, 4), "\n")
+
+# Taxa de Falsos Positivos (False Positive Rate)
+taxa_falso_positivo <- FP / sum(TN, FP)
+if (is.nan(taxa_falso_positivo)) taxa_falso_positivo <- 0 # Evita NaN se sum(TN, FP) for 0
+cat("Taxa de Falsos Positivos:", round(taxa_falso_positivo, 4), "\n")
+
+# Taxa de Falsos Negativos (False Negative Rate)
+taxa_falso_negativo <- FN / sum(TP, FN)
+if (is.nan(taxa_falso_negativo)) taxa_falso_negativo <- 0 # Evita NaN se sum(TP, FN) for 0
+cat("Taxa de Falsos Negativos:", round(taxa_falso_negativo, 4), "\n")
+
+```
+```{r}
+table(df_chuva_teste$chuva)
+```
+
+```{r}
+table(df_chuva$chuva)
+```
+
+
+```{r}
+
+bn.cv(df_chuva, bn = "tabu", algorithm.args = list(score = "bde"), fit = "bayes")
+
+```
+
+
+
+
+
+

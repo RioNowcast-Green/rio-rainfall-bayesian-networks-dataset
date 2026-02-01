@@ -1,0 +1,483 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+
+```{r}
+library(bnlearn)
+library(igraph)
+library(dplyr)
+library(gplots)
+library(Rgraphviz)
+```
+
+```{r}
+
+setwd("C:\\Users\\Pichau\\INMET")
+
+df_reduzido_discretas = read.csv("C:/Users/Pichau/INMET/TODAS_ESTACOES/df_reduzido_discretas.csv", header = TRUE, sep = ",")
+
+```
+
+```{r}
+df_reduzido_discretas
+```
+
+
+# Vou renomear aqui as variaveis radiação e vento, pois, elas nao sao a variação e sim o valor absoluto
+# renomiei errado em uma etapa anterior;
+```{r}
+
+colnames(df_reduzido_discretas)[colnames(df_reduzido_discretas) == "vento_var1"] = "vento_valor1"
+colnames(df_reduzido_discretas)[colnames(df_reduzido_discretas) == "vento_var2"] = "vento_valor2"
+colnames(df_reduzido_discretas)[colnames(df_reduzido_discretas) == "vento_var3"] = "vento_valor3"
+
+colnames(df_reduzido_discretas)[colnames(df_reduzido_discretas) == "radiacao_var1"] = "radiacao_valor1"
+colnames(df_reduzido_discretas)[colnames(df_reduzido_discretas) == "radiacao_var2"] = "radiacao_valor2"
+colnames(df_reduzido_discretas)[colnames(df_reduzido_discretas) == "radiacao_var3"] = "radiacao_valor3"
+
+df_reduzido_discretas
+```
+
+```{r}
+caminho_salvar = "C:/Users/Pichau/INMET/TODAS_ESTACOES/df_reduzido_discretas_renomeado.csv"
+write.csv(df_reduzido_discretas, caminho_salvar, row.names = FALSE)
+
+```
+
+
+
+```{r}
+df_reduzido_discretas[] <- lapply(df_reduzido_discretas, as.factor)
+df_reduzido_discretas
+```
+
+```{r}
+# Lista das variáveis (sem incluir Precip)
+variaveis <- setdiff(names(df_reduzido_discretas), "chuva")
+
+# Criar a blacklist: impedir que Precip seja pai de qualquer variável
+blacklist <- data.frame(
+  from = rep("chuva", length(variaveis)),
+  to = variaveis
+)
+
+
+blacklist_rad <- data.frame(
+  from = c("radiacao_valor1", "radiacao_valor1", 'radiacao_valor2'),
+  to = c("radiacao_valor2", "radiacao_valor3",'radiacao_valor3')
+)
+
+blacklist_umi <- data.frame(
+  from = c("umid_valor1", "umid_valor1", 'umid_valor2'),
+  to = c("umid_valor2", "umid_valor3",'umid_valor3')
+)
+
+blacklist_temp <- data.frame(
+  from = c("temp_valor1", "temp_valor1", 'temp_valor2'),
+  to = c("temp_valor2", "temp_valor3",'temp_valor3')
+)
+
+blacklist_pressao <- data.frame(
+  from = c("pressao_valor1", "pressao_valor1", 'pressao_valor2'),
+  to = c("pressao_valor2", "pressao_valor3",'pressao_valor3')
+)
+
+blacklist_orvalho <- data.frame(
+  from = c("orvalho_valor1", "orvalho_valor1", 'orvalho_valor2'),
+  to = c("orvalho_valor2", "orvalho_valor3",'orvalho_valor3')
+)
+
+blacklist_vento <- data.frame(
+  from = c("vento_valor1", "vento_valor1", 'vento_valor2'),
+  to = c("vento_valor2", "vento_valor3",'vento_valor3')
+)
+
+blacklist_turno_estacao <- data.frame(
+  from = c("estacao_ano", "turno"),
+  to = c("turno", "estacao_ano")
+)
+
+
+blacklist_turno_outras <- data.frame(
+  from = c("radiacao_valor1", "radiacao_valor2", 'radiacao_valor3','umid_valor1','umid_valor2', 'umid_valor3', 'temp_valor1', 'temp_valor2','temp_valor3','pressao_valor1','pressao_valor2','pressao_valor3', 'orvalho_valor1','orvalho_valor2','orvalho_valor3','vento_valor1','vento_valor1','vento_valor1'),
+  
+  to = c("turno", "turno", 'turno', 'turno','turno','turno','turno','turno','turno','turno','turno','turno','turno','turno','turno', 'turno','turno','turno')
+)
+
+blacklist_estacao_ano_outras<- data.frame(
+  from = c("radiacao_valor1", "radiacao_valor2", 'radiacao_valor3','umid_valor1','umid_valor2', 'umid_valor3', 'temp_valor1', 'temp_valor2','temp_valor3','pressao_valor1','pressao_valor2','pressao_valor3', 'orvalho_valor1','orvalho_valor2','orvalho_valor3','vento_valor1','vento_valor1','vento_valor1'),
+  
+  to = c("estacao_ano", "estacao_ano", 'estacao_ano', 'estacao_ano','estacao_ano','estacao_ano','estacao_ano','estacao_ano','estacao_ano','estacao_ano','estacao_ano','estacao_ano','estacao_ano','estacao_ano','estacao_ano', 'estacao_ano','estacao_ano','estacao_ano')
+)
+
+################# Radiação ####################################################
+
+blacklist_rad_outras_1<- data.frame(
+  from = c("radiacao_valor1", "radiacao_valor1", 'radiacao_valor1','radiacao_valor1','radiacao_valor1', 'radiacao_valor1', 'radiacao_valor1', 'radiacao_valor1','radiacao_valor1','radiacao_valor1'),
+  
+  
+  to = c("umid_valor2", "umid_valor3", 'temp_valor2', 'temp_valor3','pressao_valor2','pressao_valor3','orvalho_valor2','orvalho_valor3','vento_valor2','vento_valor3')
+)
+
+blacklist_rad_outras_2 <- data.frame(
+  from = c("radiacao_valor2", "radiacao_valor2", 'radiacao_valor2','radiacao_valor2','radiacao_valor2'),
+  
+  
+  to = c("umid_valor3",  'temp_valor3','pressao_valor3', 'orvalho_valor3', 'vento_valor3')
+)
+
+###############################################################################
+
+################# Umidade ####################################################
+
+blacklist_umidade_outras_1<- data.frame(
+  from = c("umid_valor1", "umid_valor1", 'umid_valor1','umid_valor1','umid_valor1', 'umid_valor1', 'umid_valor1', 'umid_valor1','umid_valor1','umid_valor1'),
+  
+  
+  to = c("radiacao_valor2", "radiacao_valor3", 'temp_valor2', 'temp_valor3','pressao_valor2','pressao_valor3','orvalho_valor2','orvalho_valor3','vento_valor2','vento_valor3')
+)
+
+blacklist_umidade_outras_2 <- data.frame(
+  from = c("umid_valor2", "umid_valor2", 'umid_valor2','umid_valor2','umid_valor2'),
+  
+  
+  to = c("radiacao_valor3",  'temp_valor3','pressao_valor3', 'orvalho_valor3', 'vento_valor3')
+)
+
+###############################################################################
+
+################# Temperatura ####################################################
+
+
+blacklist_temperatura_outras_1<- data.frame(
+  from = c("temp_valor1", "temp_valor1", 'temp_valor1','temp_valor1','temp_valor1', 'temp_valor1', 'temp_valor1', 'temp_valor1','temp_valor1','temp_valor1'),
+  
+  
+  to = c("radiacao_valor2", "radiacao_valor3", 'umid_valor2', 'umid_valor3','pressao_valor2','pressao_valor3','orvalho_valor2','orvalho_valor3','vento_valor2','vento_valor3')
+)
+
+blacklist_temperatura_outras_2 <- data.frame(
+  from = c("temp_valor2", "temp_valor2", 'temp_valor2','temp_valor2','temp_valor2'),
+  
+  
+  to = c("radiacao_valor3",  'umid_valor3','pressao_valor3', 'orvalho_valor3', 'vento_valor3')
+)
+
+
+###############################################################################
+################# pressao ####################################################
+
+blacklist_pressao_outras_1<- data.frame(
+  from = c("pressao_valor1", "pressao_valor1", 'pressao_valor1','pressao_valor1','pressao_valor1', 'pressao_valor1', 'pressao_valor1', 'pressao_valor1','pressao_valor1','pressao_valor1'),
+  
+  
+  to = c("radiacao_valor2", "radiacao_valor3", 'umid_valor2', 'umid_valor3' ,'temp_valor2','temp_valor3','orvalho_valor2','orvalho_valor3','vento_valor2','vento_valor3')
+)
+
+blacklist_pressao_outras_2 <- data.frame(
+  from = c("pressao_valor2", "pressao_valor2", 'pressao_valor2','pressao_valor2','pressao_valor2'),
+  
+  
+  to = c("radiacao_valor3",  'umid_valor3','temp_valor3', 'orvalho_valor3', 'vento_valor3')
+)
+
+
+
+###############################################################################
+################# orvalho ####################################################
+
+blacklist_orvalho_outras_1<- data.frame(
+  from = c("orvalho_valor1", "orvalho_valor1", 'orvalho_valor1','orvalho_valor1','orvalho_valor1', 'orvalho_valor1', 'orvalho_valor1', 'orvalho_valor1','orvalho_valor1','orvalho_valor1'),
+  
+  
+  to = c("radiacao_valor2", "radiacao_valor3", 'umid_valor2', 'umid_valor3' ,'temp_valor2','temp_valor3','pressao_valor2','pressao_valor3','vento_valor2','vento_valor3')
+)
+
+blacklist_orvalho_outras_2 <- data.frame(
+  from = c("orvalho_valor2", "orvalho_valor2", 'orvalho_valor2','orvalho_valor2','orvalho_valor2'),
+  
+  
+  to = c("radiacao_valor3",  'umid_valor3','temp_valor3', 'pressao_valor3', 'vento_valor3')
+)
+
+
+
+###############################################################################
+
+################# vento ####################################################
+
+blacklist_vento_outras_1<- data.frame(
+  from = c("vento_valor1", "vento_valor1", 'vento_valor1','vento_valor1','vento_valor1', 'vento_valor1', 'vento_valor1', 'vento_valor1','vento_valor1','vento_valor1'),
+  
+  
+  to = c("radiacao_valor2", "radiacao_valor3", 'umid_valor2', 'umid_valor3' ,'temp_valor2','temp_valor3','pressao_valor2','pressao_valor3','orvalho_valor2','orvalho_valor3')
+)
+
+blacklist_vento_outras_2 <- data.frame(
+  from = c("vento_valor2", "vento_valor2", 'vento_valor2','vento_valor2','vento_valor2'),
+  
+  
+  to = c("radiacao_valor3",  'umid_valor3','temp_valor3', 'pressao_valor3', 'orvalho_valor3')
+)
+
+
+
+
+
+###############################################################################
+
+
+# Combinar com a blacklist principal
+blacklist <- rbind(blacklist, blacklist_rad,blacklist_umi,blacklist_temp, blacklist_pressao,blacklist_orvalho,blacklist_vento ,blacklist_turno_estacao, blacklist_turno_outras, blacklist_estacao_ano_outras,blacklist_rad_outras_1, blacklist_rad_outras_2, blacklist_umidade_outras_1, blacklist_umidade_outras_2, blacklist_temperatura_outras_1, blacklist_temperatura_outras_2, blacklist_pressao_outras_1, blacklist_pressao_outras_2, blacklist_orvalho_outras_1, blacklist_orvalho_outras_2, blacklist_vento_outras_1, blacklist_vento_outras_2 )
+
+
+bl = blacklist
+```
+
+
+
+
+############# HC - BIC ############# 
+
+# Estrutura
+```{r}
+rb_bic <- hc(df_reduzido_discretas, blacklist = bl)
+rb_bic
+```
+
+# Imagem
+```{r}
+
+# Converter para igraph
+g <- as.igraph(rb_bic)
+
+# Definir layout melhorado (Sugiyama)
+layout_sugi <- layout_with_sugiyama(g)$layout
+
+# Exportar gráfico em alta resolução para PNG
+
+png("C:/Users/Pichau/INMET/Estruturas das Redes Bayesianas/Geral/rede_bayesiana_reduzida_por_ACP_com_Blacklist_hc_bic.png", 
+    width = 2000, height = 1600, res = 150)
+
+# Plotar com melhorias visuais
+plot(
+  g,
+  layout = layout_sugi,
+  vertex.label = V(g)$name,
+  vertex.size = 12,
+  vertex.label.cex = 0.4,
+  vertex.label.color = "black",
+  vertex.color = "lightblue",
+  edge.arrow.size = 0.5,
+  edge.color = "gray40",
+  margin = 0.1,
+  main = "Rede Bayesiana das relações probabilísticas relacionadas a chuva , com blacklist (HC - AIC)"
+)
+
+dev.off()
+
+
+```
+
+############# HC - AIC ############# 
+
+# Estrutura 
+
+```{r}
+rb_aic <- hc(df_reduzido_discretas, blacklist = bl, score = "aic")
+rb_aic
+```
+
+# Imagem
+
+```{r}
+
+# Converter para igraph
+g <- as.igraph(rb_aic)
+
+# Definir layout melhorado (Sugiyama)
+layout_sugi <- layout_with_sugiyama(g)$layout
+
+# Exportar gráfico em alta resolução para PNG
+
+png("C:/Users/Pichau/INMET/Estruturas das Redes Bayesianas/Geral/rede_bayesiana_reduzida_por_ACP_com_Blacklist_hc_aic.png", 
+    width = 2000, height = 1600, res = 150)
+
+# Plotar com melhorias visuais
+plot(
+  g,
+  layout = layout_sugi,
+  vertex.label = V(g)$name,
+  vertex.size = 12,
+  vertex.label.cex = 0.4,
+  vertex.label.color = "black",
+  vertex.color = "lightblue",
+  edge.arrow.size = 0.5,
+  edge.color = "gray40",
+  margin = 0.1,
+  main = "Rede Bayesiana das relações probabilísticas relacionadas a chuva , com blacklist (HC - AIC)"
+)
+
+dev.off()
+
+
+```
+
+
+############# HC - K2 ############# 
+
+# Estrutura 
+
+```{r}
+rb_k2 <- hc(df_reduzido_discretas, blacklist = bl, score = "k2")
+rb_k2
+```
+
+# Imagem 
+
+```{r}
+# Converter para igraph
+g <- as.igraph(rb_k2)
+
+# Definir layout melhorado (Sugiyama)
+layout_sugi <- layout_with_sugiyama(g)$layout
+
+# Exportar gráfico em alta resolução para PNG
+
+png("C:/Users/Pichau/INMET/Estruturas das Redes Bayesianas/Geral/rede_bayesiana_reduzida_por_ACP_com_Blacklist_hc_k2.png", 
+    width = 2000, height = 1600, res = 150)
+
+# Plotar com melhorias visuais
+plot(
+  g,
+  layout = layout_sugi,
+  vertex.label = V(g)$name,
+  vertex.size = 12,
+  vertex.label.cex = 0.4,
+  vertex.label.color = "black",
+  vertex.color = "lightblue",
+  edge.arrow.size = 0.5,
+  edge.color = "gray40",
+  margin = 0.1,
+  main = "Rede Bayesiana das relações probabilísticas relacionadas a chuva , com blacklist (HC - k2)"
+)
+
+dev.off()
+
+
+```
+
+
+############# HC - BDE  ############# 
+
+# Estrutura
+
+```{r}
+rb_bde <- hc(df_reduzido_discretas, blacklist = bl, score = "bde")
+rb_bde
+```
+
+# Imagem
+
+```{r}
+# Converter para igraph
+g <- as.igraph(rb_bde)
+
+# Definir layout melhorado (Sugiyama)
+layout_sugi <- layout_with_sugiyama(g)$layout
+
+# Exportar gráfico em alta resolução para PNG
+
+png("C:/Users/Pichau/INMET/Estruturas das Redes Bayesianas/Geral/rede_bayesiana_reduzida_por_ACP_com_Blacklist_hc_bde.png", 
+    width = 2000, height = 1600, res = 150)
+
+# Plotar com melhorias visuais
+plot(
+  g,
+  layout = layout_sugi,
+  vertex.label = V(g)$name,
+  vertex.size = 12,
+  vertex.label.cex = 0.4,
+  vertex.label.color = "black",
+  vertex.color = "lightblue",
+  edge.arrow.size = 0.5,
+  edge.color = "gray40",
+  margin = 0.1,
+  main = "Rede Bayesiana das relações probabilísticas relacionadas a chuva , com blacklist (HC - k2)"
+)
+
+dev.off()
+
+
+```
+
+####################################
+
+
+# HC BIC BOOTSTRAP 
+
+```{r}
+
+
+
+str.diff_bic = boot.strength(df_reduzido_discretas, R = 1000, algorithm = "hc",
+                             algorithm.args = list(blacklist = bl))
+
+caminho_csv = "C:/Users/Pichau/INMET/resultado_botst/forca_arestas_hc_bic.csv"
+write.csv(str.diff_bic, caminho_csv, row.names = FALSE)
+
+
+# head(str.diff_bic) 
+```
+
+
+# HC aic BOOTSTRAP 
+
+```{r}
+
+
+
+str.diff_aic = boot.strength(df_reduzido_discretas, R = 1000, algorithm = "hc",
+                             algorithm.args = list(blacklist = bl, score = "aic"))
+
+caminho_csv = "C:/Users/Pichau/INMET/resultado_botst/forca_arestas_hc_aic.csv"
+write.csv(str.diff_aic, caminho_csv, row.names = FALSE)
+
+```
+
+# HC k2 BOOTSTRAP 
+
+```{r}
+
+
+
+str.diff_k2 = boot.strength(df_reduzido_discretas, R = 1000, algorithm = "hc",
+                             algorithm.args = list(blacklist = bl, score = "k2"))
+
+caminho_csv = "C:/Users/Pichau/INMET/resultado_botst/forca_arestas_hc_k2.csv"
+write.csv(str.diff_k2, caminho_csv, row.names = FALSE)
+
+```
+
+# HC bde BOOTSTRAP 
+
+```{r}
+
+
+
+str.diff_bde = boot.strength(df_reduzido_discretas, R = 1000, algorithm = "hc",
+                             algorithm.args = list(blacklist = bl, score = "bde"))
+
+caminho_csv = "C:/Users/Pichau/INMET/resultado_botst/forca_arestas_hc_bde.csv"
+write.csv(str.diff_bde, caminho_csv, row.names = FALSE)
+
+```
+
+

@@ -1,0 +1,387 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+ 
+```{r}
+library(bnlearn)
+library(igraph)
+library(dplyr)
+library(gplots)
+library(Rgraphviz)
+
+```
+
+```{r}
+
+setwd("C:\\Users\\Pichau\\INMET")
+
+df_reduzido_discretas = read.csv("C:/Users/Pichau/INMET/TODAS_ESTACOES/df_reduzido_discretas_renomeado.csv", header = TRUE, sep = ",")
+
+df_reduzido_discretas[] <- lapply(df_reduzido_discretas, as.factor)
+
+```
+
+```{r}
+
+df_reduzido_discretas <- df_reduzido_discretas %>%
+  rename(
+    # Radiation
+    Radiation_lag1h = radiacao_valor1,
+    Radiation_lag2h = radiacao_valor2,
+    Radiation_lag3h = radiacao_valor3,
+
+    # Humidity
+    Humidity_lag1h = umid_valor1, 
+    Humidity_lag2h = umid_valor2, 
+    Humidity_lag3h = umid_valor3,
+
+    # Temperature
+    Temperature_lag1h = temp_valor1,
+    Temperature_lag2h = temp_valor2,
+    Temperature_lag3h = temp_valor3,
+
+    # Pressure
+    Pressure_lag1h = pressao_valor1,
+    Pressure_lag2h = pressao_valor2,
+    Pressure_lag3h = pressao_valor3,
+
+    # Dew Point Temperature
+    Dew_point_lag1h = orvalho_valor1,
+    Dew_point_lag2h = orvalho_valor2,
+    Dew_point_lag3h = orvalho_valor3,
+
+    # Wind Speed
+    Wind_speed_lag1h = vento_valor1,
+    Wind_speed_lag2h = vento_valor2,
+    Wind_speed_lag3h = vento_valor3,
+
+    # Rain
+    Rain = chuva,
+
+    # Season
+    Season = estacao_ano,
+
+    # Shift / Time of day
+    Day_period = turno
+  )
+
+```
+
+
+
+```{r}
+df_reduzido_discretas[] <- lapply(df_reduzido_discretas, as.factor)
+```
+
+
+# Blacklist_ingles
+```{r}
+source("C:\\Users\\Pichau\\INMET\\funcao_blacklist\\blacklist_ingles.R")
+```
+
+
+```{r}
+dag_iamb_005 <- iamb(df_reduzido_discretas, blacklist = bl)
+
+dag_iamb_005
+```
+
+
+
+
+```{r}
+# Converter para igraph
+g <- as.igraph(dag_iamb_005)
+
+# Definir layout melhorado (Sugiyama)
+layout_sugi <- layout_with_sugiyama(g)$layout
+
+
+png("C:/Users/Pichau/INMET/Estruturas das Redes Bayesianas/IAMB_INGLES/IAMB_INGLES.png", 
+    width = 6440, height = 6160, res = 300  )
+
+# Plotar com melhorias visuais
+plot(
+  g,
+  layout = layout_sugi,
+  vertex.label = V(g)$name,
+  vertex.size = 14,
+  vertex.label.cex = 0.8,
+  vertex.label.color = "black",
+  vertex.color = "lightblue",
+  edge.arrow.size = 0.5,
+  edge.color = "gray40",
+  margin = 0.1,
+)
+
+dev.off()
+```
+################ Testando abreviar os nomes
+
+```{r}
+
+setwd("C:\\Users\\Pichau\\INMET")
+
+df_reduzido_discretas = read.csv("C:/Users/Pichau/INMET/TODAS_ESTACOES/df_reduzido_discretas_renomeado.csv", header = TRUE, sep = ",")
+
+df_reduzido_discretas[] <- lapply(df_reduzido_discretas, as.factor)
+
+
+df_reduzido_discretas <- df_reduzido_discretas %>%
+  rename(
+    # Radiation
+    R_1h = radiacao_valor1,
+    R_2h = radiacao_valor2,
+    R_3h = radiacao_valor3,
+
+    # Humidity
+    H_1h = umid_valor1, 
+    H_2h = umid_valor2, 
+    H_3h = umid_valor3,
+
+    # Temperature
+    T_1h = temp_valor1,
+    T_2h = temp_valor2,
+    T_3h = temp_valor3,
+
+    # Pressure
+    P_1h = pressao_valor1,
+    P_2h = pressao_valor2,
+    P_3h = pressao_valor3,
+
+    # Dew Point Temperature
+    DT_1h = orvalho_valor1,
+    DT_2h = orvalho_valor2,
+    DT_3h = orvalho_valor3,
+
+    # Wind Speed
+    W_1h = vento_valor1,
+    W_2h = vento_valor2,
+    W_3h = vento_valor3,
+
+    # Rain
+    Rain = chuva,
+
+    # Season
+    S = estacao_ano,
+
+    # Shift / Time of day
+    Day_p = turno
+  )
+
+df_reduzido_discretas[] <- lapply(df_reduzido_discretas, as.factor)
+
+source("C:\\Users\\Pichau\\INMET\\funcao_blacklist\\blacklist_siglas.R")
+
+
+```
+
+```{r}
+df_reduzido_discretas
+```
+
+
+```{r}
+dag_iamb_005 <- iamb(df_reduzido_discretas, blacklist = bl)
+
+dag_iamb_005
+```
+
+```{r}
+# Converter para igraph
+g <- as.igraph(dag_iamb_005)
+
+# Definir layout melhorado (Sugiyama)
+layout_sugi <- layout_with_sugiyama(g)$layout
+
+
+png("C:/Users/Pichau/INMET/Estruturas das Redes Bayesianas/IAMB_INGLES/IAMB_SIGLAS.png", 
+    width = 2000, height = 1600, res = 300  )
+
+# Plotar com melhorias visuais
+plot(
+  g,
+  layout = layout_sugi,
+  vertex.label = V(g)$name,
+  vertex.size = 14,
+  vertex.label.cex = 0.4,
+  vertex.label.color = "black",
+  vertex.color = "lightblue",
+  edge.arrow.size = 0.2,
+  edge.color = "gray40",
+  margin = 0.05,
+
+)
+
+dev.off()
+```
+
+
+
+
+
+```{r}
+
+dag_PC <- pc.stable(df_reduzido_discretas, blacklist = bl)
+
+# Converter para igraph
+g <- as.igraph(dag_PC)
+
+# Definir layout melhorado (Sugiyama)
+layout_sugi <- layout_with_sugiyama(g)$layout
+
+
+png("C:/Users/Pichau/INMET/Estruturas das Redes Bayesianas/IAMB_INGLES/CB_PC_ABREVIADO.png", 
+    width = 2000, height = 1600, res = 300  )
+
+# Plotar com melhorias visuais
+plot(
+  g,
+  layout = layout_sugi,
+  vertex.label = V(g)$name,
+  vertex.size = 14,
+  vertex.label.cex = 0.4,
+  vertex.label.color = "black",
+  vertex.color = "lightblue",
+  edge.arrow.size = 0.2,
+  edge.color = "gray40",
+  margin = 0.05,
+
+)
+
+dev.off()
+```
+
+
+```{r}
+dag_gs<- gs(df_reduzido_discretas, blacklist = bl)
+
+
+# Converter para igraph
+g <- as.igraph(dag_gs)
+
+# Definir layout melhorado (Sugiyama)
+layout_sugi <- layout_with_sugiyama(g)$layout
+
+
+png("C:/Users/Pichau/INMET/Estruturas das Redes Bayesianas/CB_E_HIBRIDOS_ABREVIADOS/CB_GS_ABREVIADO.png", 
+    width = 2000, height = 1600, res = 300  )
+
+# Plotar com melhorias visuais
+plot(
+  g,
+  layout = layout_sugi,
+  vertex.label = V(g)$name,
+  vertex.size = 14,
+  vertex.label.cex = 0.4,
+  vertex.label.color = "black",
+  vertex.color = "lightblue",
+  edge.arrow.size = 0.2,
+  edge.color = "gray40",
+  margin = 0.05,
+
+)
+
+dev.off()
+```
+
+```{r}
+dag_com_blacklist_MMHC <- mmhc(df_reduzido_discretas, blacklist = bl)
+
+# Converter para igraph
+g <- as.igraph(dag_com_blacklist_MMHC)
+
+# Definir layout melhorado (Sugiyama)
+layout_sugi <- layout_with_sugiyama(g)$layout
+
+
+png("C:/Users/Pichau/INMET/Estruturas das Redes Bayesianas/CB_E_HIBRIDOS_ABREVIADOS/HIBRIDO_MMHC_ABREVIADO.png", 
+    width = 2000, height = 1600, res = 300  )
+
+# Plotar com melhorias visuais
+plot(
+  g,
+  layout = layout_sugi,
+  vertex.label = V(g)$name,
+  vertex.size = 14,
+  vertex.label.cex = 0.4,
+  vertex.label.color = "black",
+  vertex.color = "lightblue",
+  edge.arrow.size = 0.2,
+  edge.color = "gray40",
+  margin = 0.05,
+
+)
+
+dev.off()
+
+```
+
+
+
+```{r}
+dag_com_blacklist_MMHC <- mmhc(df_reduzido_discretas, blacklist = bl)
+
+# Converter para igraph
+g <- as.igraph(dag_com_blacklist_MMHC)
+
+# Definir layout melhorado (Sugiyama)
+layout_sugi <- layout_with_sugiyama(g)$layout
+
+
+png("C:/Users/Pichau/INMET/Estruturas das Redes Bayesianas/CB_E_HIBRIDOS_ABREVIADOS/HIBRIDO_MMHC_ABREVIADO.png", 
+    width = 2000, height = 1600, res = 300  )
+
+# Plotar com melhorias visuais
+plot(
+  g,
+  layout = layout_sugi,
+  vertex.label = V(g)$name,
+  vertex.size = 14,
+  vertex.label.cex = 0.4,
+  vertex.label.color = "black",
+  vertex.color = "lightblue",
+  edge.arrow.size = 0.2,
+  edge.color = "gray40",
+  margin = 0.05,
+
+)
+
+dev.off()
+
+```
+
+
+```{r}
+dag_rsmax2 <- rsmax2(df_reduzido_discretas, blacklist = bl)
+
+# Converter para igraph
+g <- as.igraph(dag_rsmax2)
+
+# Definir layout melhorado (Sugiyama)
+layout_sugi <- layout_with_sugiyama(g)$layout
+
+
+png("C:/Users/Pichau/INMET/Estruturas das Redes Bayesianas/IAMB_INGLES/HIBRIDO_RSMAX2_ABREVIADO.png", 
+    width = 2000, height = 1600, res = 300  )
+
+# Plotar com melhorias visuais
+plot(
+  g,
+  layout = layout_sugi,
+  vertex.label = V(g)$name,
+  vertex.size = 14,
+  vertex.label.cex = 0.4,
+  vertex.label.color = "black",
+  vertex.color = "lightblue",
+  edge.arrow.size = 0.2,
+  edge.color = "gray40",
+  margin = 0.05,
+
+)
+
+dev.off()
+
+```

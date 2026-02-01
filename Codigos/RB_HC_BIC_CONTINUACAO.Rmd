@@ -1,0 +1,393 @@
+---
+title: "R Notebook"
+output:
+  html_document:
+    df_print: paged
+---
+
+ 
+
+# Importando bibliotecas
+
+```{r}
+library(bnlearn)
+library(igraph)
+library(dplyr)
+library(gplots)
+library(Rgraphviz)
+```
+
+
+
+
+
+# Importando os dados
+
+```{r}
+
+setwd("C:\\Users\\Pichau\\INMET")
+
+df_reduzido_discretas = read.csv("C:/Users/Pichau/INMET/TODAS_ESTACOES/df_reduzido_discretas_renomeado.csv", header = TRUE, sep = ",")
+
+df_reduzido_discretas[] <- lapply(df_reduzido_discretas, as.factor)
+
+```
+
+
+
+
+# Blacklist
+
+```{r}
+# Lista das variáveis (sem incluir Precip)
+variaveis <- setdiff(names(df_reduzido_discretas), "chuva")
+
+# Criar a blacklist: impedir que Precip seja pai de qualquer variável
+blacklist <- data.frame(
+  from = rep("chuva", length(variaveis)),
+  to = variaveis
+)
+
+
+blacklist_rad <- data.frame(
+  from = c("radiacao_valor1", "radiacao_valor1", 'radiacao_valor2'),
+  to = c("radiacao_valor2", "radiacao_valor3",'radiacao_valor3')
+)
+
+blacklist_umi <- data.frame(
+  from = c("umid_valor1", "umid_valor1", 'umid_valor2'),
+  to = c("umid_valor2", "umid_valor3",'umid_valor3')
+)
+
+blacklist_temp <- data.frame(
+  from = c("temp_valor1", "temp_valor1", 'temp_valor2'),
+  to = c("temp_valor2", "temp_valor3",'temp_valor3')
+)
+
+blacklist_pressao <- data.frame(
+  from = c("pressao_valor1", "pressao_valor1", 'pressao_valor2'),
+  to = c("pressao_valor2", "pressao_valor3",'pressao_valor3')
+)
+
+blacklist_orvalho <- data.frame(
+  from = c("orvalho_valor1", "orvalho_valor1", 'orvalho_valor2'),
+  to = c("orvalho_valor2", "orvalho_valor3",'orvalho_valor3')
+)
+
+blacklist_vento <- data.frame(
+  from = c("vento_valor1", "vento_valor1", 'vento_valor2'),
+  to = c("vento_valor2", "vento_valor3",'vento_valor3')
+)
+
+blacklist_turno_estacao <- data.frame(
+  from = c("estacao_ano", "turno"),
+  to = c("turno", "estacao_ano")
+)
+
+
+blacklist_turno_outras <- data.frame(
+  from = c("radiacao_valor1", "radiacao_valor2", 'radiacao_valor3','umid_valor1','umid_valor2', 'umid_valor3', 'temp_valor1', 'temp_valor2','temp_valor3','pressao_valor1','pressao_valor2','pressao_valor3', 'orvalho_valor1','orvalho_valor2','orvalho_valor3','vento_valor1','vento_valor1','vento_valor1'),
+  
+  to = c("turno", "turno", 'turno', 'turno','turno','turno','turno','turno','turno','turno','turno','turno','turno','turno','turno', 'turno','turno','turno')
+)
+
+blacklist_estacao_ano_outras<- data.frame(
+  from = c("radiacao_valor1", "radiacao_valor2", 'radiacao_valor3','umid_valor1','umid_valor2', 'umid_valor3', 'temp_valor1', 'temp_valor2','temp_valor3','pressao_valor1','pressao_valor2','pressao_valor3', 'orvalho_valor1','orvalho_valor2','orvalho_valor3','vento_valor1','vento_valor1','vento_valor1'),
+  
+  to = c("estacao_ano", "estacao_ano", 'estacao_ano', 'estacao_ano','estacao_ano','estacao_ano','estacao_ano','estacao_ano','estacao_ano','estacao_ano','estacao_ano','estacao_ano','estacao_ano','estacao_ano','estacao_ano', 'estacao_ano','estacao_ano','estacao_ano')
+)
+
+################# Radiação ####################################################
+
+blacklist_rad_outras_1<- data.frame(
+  from = c("radiacao_valor1", "radiacao_valor1", 'radiacao_valor1','radiacao_valor1','radiacao_valor1', 'radiacao_valor1', 'radiacao_valor1', 'radiacao_valor1','radiacao_valor1','radiacao_valor1'),
+  
+  
+  to = c("umid_valor2", "umid_valor3", 'temp_valor2', 'temp_valor3','pressao_valor2','pressao_valor3','orvalho_valor2','orvalho_valor3','vento_valor2','vento_valor3')
+)
+
+blacklist_rad_outras_2 <- data.frame(
+  from = c("radiacao_valor2", "radiacao_valor2", 'radiacao_valor2','radiacao_valor2','radiacao_valor2'),
+  
+  
+  to = c("umid_valor3",  'temp_valor3','pressao_valor3', 'orvalho_valor3', 'vento_valor3')
+)
+
+###############################################################################
+
+################# Umidade ####################################################
+
+blacklist_umidade_outras_1<- data.frame(
+  from = c("umid_valor1", "umid_valor1", 'umid_valor1','umid_valor1','umid_valor1', 'umid_valor1', 'umid_valor1', 'umid_valor1','umid_valor1','umid_valor1'),
+  
+  
+  to = c("radiacao_valor2", "radiacao_valor3", 'temp_valor2', 'temp_valor3','pressao_valor2','pressao_valor3','orvalho_valor2','orvalho_valor3','vento_valor2','vento_valor3')
+)
+
+blacklist_umidade_outras_2 <- data.frame(
+  from = c("umid_valor2", "umid_valor2", 'umid_valor2','umid_valor2','umid_valor2'),
+  
+  
+  to = c("radiacao_valor3",  'temp_valor3','pressao_valor3', 'orvalho_valor3', 'vento_valor3')
+)
+
+###############################################################################
+
+################# Temperatura ####################################################
+
+
+blacklist_temperatura_outras_1<- data.frame(
+  from = c("temp_valor1", "temp_valor1", 'temp_valor1','temp_valor1','temp_valor1', 'temp_valor1', 'temp_valor1', 'temp_valor1','temp_valor1','temp_valor1'),
+  
+  
+  to = c("radiacao_valor2", "radiacao_valor3", 'umid_valor2', 'umid_valor3','pressao_valor2','pressao_valor3','orvalho_valor2','orvalho_valor3','vento_valor2','vento_valor3')
+)
+
+blacklist_temperatura_outras_2 <- data.frame(
+  from = c("temp_valor2", "temp_valor2", 'temp_valor2','temp_valor2','temp_valor2'),
+  
+  
+  to = c("radiacao_valor3",  'umid_valor3','pressao_valor3', 'orvalho_valor3', 'vento_valor3')
+)
+
+
+###############################################################################
+################# pressao ####################################################
+
+blacklist_pressao_outras_1<- data.frame(
+  from = c("pressao_valor1", "pressao_valor1", 'pressao_valor1','pressao_valor1','pressao_valor1', 'pressao_valor1', 'pressao_valor1', 'pressao_valor1','pressao_valor1','pressao_valor1'),
+  
+  
+  to = c("radiacao_valor2", "radiacao_valor3", 'umid_valor2', 'umid_valor3' ,'temp_valor2','temp_valor3','orvalho_valor2','orvalho_valor3','vento_valor2','vento_valor3')
+)
+
+blacklist_pressao_outras_2 <- data.frame(
+  from = c("pressao_valor2", "pressao_valor2", 'pressao_valor2','pressao_valor2','pressao_valor2'),
+  
+  
+  to = c("radiacao_valor3",  'umid_valor3','temp_valor3', 'orvalho_valor3', 'vento_valor3')
+)
+
+
+
+###############################################################################
+################# orvalho ####################################################
+
+blacklist_orvalho_outras_1<- data.frame(
+  from = c("orvalho_valor1", "orvalho_valor1", 'orvalho_valor1','orvalho_valor1','orvalho_valor1', 'orvalho_valor1', 'orvalho_valor1', 'orvalho_valor1','orvalho_valor1','orvalho_valor1'),
+  
+  
+  to = c("radiacao_valor2", "radiacao_valor3", 'umid_valor2', 'umid_valor3' ,'temp_valor2','temp_valor3','pressao_valor2','pressao_valor3','vento_valor2','vento_valor3')
+)
+
+blacklist_orvalho_outras_2 <- data.frame(
+  from = c("orvalho_valor2", "orvalho_valor2", 'orvalho_valor2','orvalho_valor2','orvalho_valor2'),
+  
+  
+  to = c("radiacao_valor3",  'umid_valor3','temp_valor3', 'pressao_valor3', 'vento_valor3')
+)
+
+
+
+###############################################################################
+
+################# vento ####################################################
+
+blacklist_vento_outras_1<- data.frame(
+  from = c("vento_valor1", "vento_valor1", 'vento_valor1','vento_valor1','vento_valor1', 'vento_valor1', 'vento_valor1', 'vento_valor1','vento_valor1','vento_valor1'),
+  
+  
+  to = c("radiacao_valor2", "radiacao_valor3", 'umid_valor2', 'umid_valor3' ,'temp_valor2','temp_valor3','pressao_valor2','pressao_valor3','orvalho_valor2','orvalho_valor3')
+)
+
+blacklist_vento_outras_2 <- data.frame(
+  from = c("vento_valor2", "vento_valor2", 'vento_valor2','vento_valor2','vento_valor2'),
+  
+  
+  to = c("radiacao_valor3",  'umid_valor3','temp_valor3', 'pressao_valor3', 'orvalho_valor3')
+)
+
+
+
+
+
+###############################################################################
+
+
+# Combinar com a blacklist principal
+blacklist <- rbind(blacklist, blacklist_rad,blacklist_umi,blacklist_temp, blacklist_pressao,blacklist_orvalho,blacklist_vento ,blacklist_turno_estacao, blacklist_turno_outras, blacklist_estacao_ano_outras,blacklist_rad_outras_1, blacklist_rad_outras_2, blacklist_umidade_outras_1, blacklist_umidade_outras_2, blacklist_temperatura_outras_1, blacklist_temperatura_outras_2, blacklist_pressao_outras_1, blacklist_pressao_outras_2, blacklist_orvalho_outras_1, blacklist_orvalho_outras_2, blacklist_vento_outras_1, blacklist_vento_outras_2 )
+
+
+bl = blacklist
+```
+
+# Estrutura da Rede Bayesiana Hc BIC 
+```{r}
+rb_bic <- hc(df_reduzido_discretas, blacklist = bl)
+rb_bic
+```
+
+
+# Salvando a imagem da Estrutura da Rede Bayesiana HC BIC
+
+```{r}
+g <- as.igraph(rb_bic)
+
+layout_sugi <- layout_with_sugiyama(g)$layout
+
+png("C:/Users/Pichau/INMET/Estruturas das Redes Bayesianas/Geral/rede_bayesiana_reduzida_por_ACP_com_Blacklist_hc_bic.png", 
+    width = 2000, height = 1600, res = 150)
+
+plot(
+  g,layout = layout_sugi,vertex.label = V(g)$name,vertex.size = 12,vertex.label.cex = 0.4,vertex.label.color = "black",vertex.color = "lightblue",edge.arrow.size = 0.5,
+  edge.color = "gray40",margin = 0.1,main = "Rede Bayesiana das relações probabilísticas relacionadas a chuva , com blacklist (HC - AIC)"
+)
+
+dev.off()
+
+```
+
+
+# BOOTSTRAP, 200 vez para calcular a estrutura da rede média Hc Bic 
+
+```{r}
+
+str.diff_bic = boot.strength(df_reduzido_discretas, R = 300, algorithm = "hc",
+                             algorithm.args = list(blacklist = bl))
+
+caminho_csv = "C:/Users/Pichau/INMET/resultado_botst/forca_arestas_hc_bic_100.csv"
+
+write.csv(str.diff_bic, caminho_csv, row.names = FALSE)
+
+```
+
+```{r}
+str.diff_bic
+```
+
+# Define o  minimo para dizer se um arco é forte o suficiente. 
+```{r}
+attr(str.diff_bic, "threshold")
+```
+# Selecionando a rede média. 
+```{r}
+avg.diff = averaged.network(str.diff_bic)
+```
+
+
+
+# Verifica se a rede média e a rede única são iguais. 
+
+```{r}
+all.equal(avg.diff, rb_bic)
+```
+
+```{r}
+avg.diff
+```
+
+
+# Gera a imagem da Rede Média e da Rede única. 
+
+```{r}
+png("C:/Users/Pichau/INMET/Estruturas das Redes Bayesianas/Geral/comparacao_redemedia_redeunica_hc_bic.png", 
+    width = 2000, height = 1600, res = 150)
+
+
+
+par ( mfrow  =  c ( 1 ,  2 )) 
+graphviz.compare (avg.diff, rb_bic,  shape  =  "ellipse" ,  main  =  c ( "média DAG" ,  "single DAG" ))
+
+dev.off()
+```
+
+
+
+# Gráfico da força dos arcos. 
+```{r}
+plot(str.diff_bic)
+
+abline(v = 0.75, col = "darkorange", lty = 2, lwd = 2) 
+abline(v = 0.85, col = "darkgreen", lty = 2, lwd = 2)  
+
+
+```
+
+
+```{r}
+# Esse resultado são os 79 nós da aresta. 
+nrow(str.diff_bic[str.diff_bic$strength > attr(str.diff_bic, "threshold") & str.diff_bic$direction > 0.5, ])
+
+
+```
+
+```{r}
+nrow(str.diff_bic[str.diff_bic$strength > 0.75 & str.diff_bic$direction > 0.5, ])
+```
+
+```{r}
+nrow(str.diff_bic[str.diff_bic$strength > 0.85 & str.diff_bic$direction > 0.5, ])
+
+```
+```{r}
+nrow(str.diff_bic[str.diff_bic$strength > 0.90 & str.diff_bic$direction > 0.5, ])
+```
+```{r}
+nrow(str.diff_bic[str.diff_bic$strength > 0.95 & str.diff_bic$direction > 0.5, ])
+```
+```{r}
+nrow(str.diff_bic[str.diff_bic$strength > 0.99 & str.diff_bic$direction > 0.5, ])
+```
+
+
+# Criando uma rede mais simples, com força dos arcos maior que 0.90
+```{r}
+avg.simpler = averaged.network(str.diff_bic, threshold = 0.85)
+avg.simpler
+
+# em 50 , os arcos da chuva são: umid valor1, rad valor 3, rad valor1, vento valor 1
+# em 75, os arcos da chuva são: umid valor1, rad valor 1, vento valor1,  saiu rad valor 3 
+# em 85, os arcos da chuva são: umid valor1, rad valor 1, rad valor 1. 
+```
+
+```{r}
+avg.simpler
+```
+
+
+```{r}
+g <- as.igraph(avg.simpler)
+
+layout_sugi <- layout_with_sugiyama(g)$layout
+
+png("C:/Users/Pichau/INMET/Estruturas das Redes Bayesianas/Geral/Rede_Média_HC_BIC.png", 
+    width = 2000, height = 1600, res = 150)
+
+plot(
+  g,layout = layout_sugi, shape = "ellipse", vertex.label = V(g)$name,vertex.size = 12,vertex.label.cex = 0.4,vertex.label.color = "black",vertex.color = "lightblue",edge.arrow.size = 0.5,
+  edge.color = "gray40",margin = 0.1,main = "Rede Média HC BIC"
+)
+
+dev.off()
+
+```
+```{r}
+mb(avg.simpler, "chuva")
+```
+
+```{r}
+all.equal(avg.simpler, rb_bic)
+```
+
+# Aprendendo os parâmetros. 
+
+```{r}
+fitted.simpler = bn.fit(avg.simpler, df_reduzido_discretas)
+# fitted.simpler
+```
+
+
+# Validação do Modelo. 
+
+
+

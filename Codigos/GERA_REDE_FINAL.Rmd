@@ -1,0 +1,226 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+
+# Importando bibliotecas
+
+```{r}
+library(bnlearn)
+library(igraph)
+library(dplyr)
+library(gplots)
+library(Rgraphviz)
+library(dplyr)
+library(ROSE)
+```
+
+
+# Importando os dados
+
+```{r}
+
+setwd("C:\\Users\\Pichau\\INMET")
+
+df_reduzido_discretas = read.csv("C:/Users/Pichau/INMET/TODAS_ESTACOES/df_reduzido_discretas_renomeado.csv", header = TRUE, sep = ",")
+
+df_reduzido_discretas[] <- lapply(df_reduzido_discretas, as.factor)
+
+```
+
+# Renomeando as variaveis
+
+```{r}
+
+df_reduzido_discretas <- df_reduzido_discretas %>%
+  rename(
+    
+    radiacao_atraso1h = radiacao_valor1,
+    radiacao_atraso2h = radiacao_valor2,
+    radiacao_atraso3h = radiacao_valor3,
+    
+    umidade_atraso1h = umid_valor1, 
+    umidade_atraso2h = umid_valor2, 
+    umidade_atraso3h = umid_valor3,
+   
+    temperatura_atraso1h = temp_valor1,
+    temperatura_atraso2h = temp_valor2,
+    temperatura_atraso3h = temp_valor3,
+   
+   pressao_atraso1h = pressao_valor1,
+   pressao_atraso2h = pressao_valor2,
+   pressao_atraso3h = pressao_valor3,
+    
+  temp_orvalho_atraso1h = orvalho_valor1,
+  temp_orvalho_atraso2h = orvalho_valor2,
+  temp_orvalho_atraso3h = orvalho_valor3,
+   
+  vento_atraso1h = vento_valor1,
+  vento_atraso2h = vento_valor2,
+  vento_atraso3h = vento_valor3,
+   
+  chuva = chuva ,
+    
+  estacao_do_ano = estacao_ano,
+   
+  turno = turno
+    
+  )
+
+```
+
+```{r}
+df_reduzido_discretas
+```
+
+
+# Blacklist
+```{r}
+source("C:\\Users\\Pichau\\INMET\\funcao_blacklist\\blacklist.R")
+```
+
+# Estrutura da Rede Bayesiana Hc bic
+```{r}
+rb_BIC <- hc(df_reduzido_discretas, blacklist = bl, score = "bic")
+rb_BIC
+```
+
+# BOOTSTRAP, 300 vezes para calcular a estrutura da rede média HC bic. 
+
+```{r}
+
+str.diff_bic = boot.strength(df_reduzido_discretas, R = 300, algorithm = "hc",
+                             algorithm.args = list(blacklist = bl, score = "bic"))
+
+caminho_csv = "C:/Users/Pichau/INMET/resultado_botst/forca_arestas_hc_bic_final.csv"
+
+write.csv(str.diff_bic, caminho_csv, row.names = FALSE)
+
+```
+
+################################################################################
+
+
+# Criando uma rede mais simples, com força dos arcos maior que 0.90
+```{r}
+avg.simpler = averaged.network(str.diff_bic, threshold = 0.85)
+
+avg.simpler
+```
+
+# Gerou undirected arcs:   
+
+
+```{r}
+avg.simpler <- bnlearn::drop.arc(avg.simpler, from = "pressao_atraso3h", to = "radiacao_atraso3h")
+avg.simpler <- bnlearn::drop.arc(avg.simpler, from = "radiacao_atraso3h", to = "pressao_atraso3h")
+avg.simpler
+```
+################################################################################
+
+# Pais de chuva
+```{r}
+parents(avg.simpler, "chuva")
+```
+# avos_chuva
+```{r}
+pais_chuva <- parents(avg.simpler, "chuva")
+
+ancestrais_chuva <- ancestors(avg.simpler, "chuva")
+
+avos_chuva <- setdiff(ancestrais_chuva, pais_chuva)
+avos_chuva
+```
+
+# Todos os arcos da Rede Bayesiana
+```{r}
+arcs(avg.simpler)
+
+# Extrair arcos
+arcos <- arcs(avg.simpler)
+
+# Converter para data.frame
+df_arcos <- as.data.frame(arcos)
+
+# Salvar em CSV
+write.csv(df_arcos, "arcos_rede_bayesiana_final_BIC.csv", row.names = FALSE)
+```
+
+
+################################################################################
+
+
+
+
+
+```{r}
+g <- as.igraph(avg.simpler)
+
+layout_sugi <- layout_with_sugiyama(g)$layout
+
+png("C:/Users/Pichau/INMET/Estruturas das Redes Bayesianas/REDE_FINAL/estrutura_final.png", 
+    width = 2000, height = 1600, res = 150)
+
+plot(
+  g,layout = layout_sugi,vertex.label = V(g)$name,vertex.size = 12,vertex.label.cex = 0.4,vertex.label.color = "black",vertex.color = "lightblue",edge.arrow.size = 0.5,
+  edge.color = "gray40",margin = 0.1,main = "Rede Bayesiana (HC + BIC) – Estrutura Final"
+)
+
+dev.off()
+
+```
+
+
+```{r}
+library(igraph)
+
+g <- as.igraph(avg.simpler)
+
+layout_sugi <- layout_with_sugiyama(g)$layout
+
+# Ajustar espaçamento
+layout_sugi[,2] <- layout_sugi[,2] * 15 # aumenta distância vertical
+layout_sugi[,1] <- layout_sugi[,1] * 20.5  # aumenta distância horizontal
+
+
+no_alvo <- which(V(g)$name == "radiacao_atraso2h")  # encontra índice do nó
+
+layout_sugi[no_alvo, ] <- c(540, 135)      # define nova posição
+
+no_alvo <- which(V(g)$name == "temperatura_atraso3h")  # encontra índice do nó
+
+layout_sugi[no_alvo, ] <- c(330, 125)
+
+png("C:/Users/Pichau/INMET/Estruturas das Redes Bayesianas/REDE_FINAL/estrutura_final_HC_BIC.png", 
+    width = 6440, height = 6160, res = 300  )
+
+plot(
+  g,
+  layout = layout_sugi,
+  vertex.label = V(g)$name,
+  vertex.label.cex = 1.25,
+  vertex.label.font = 2 ,  
+  vertex.label.color = "black",
+  vertex.label.dist = 0,
+  vertex.size = 25,
+  vertex.color = "lightblue",
+  vertex.shape = "rectangle",
+  edge.arrow.size = 0.4,
+  edge.color = "black",
+  margin = -0.11,
+  vertex.frame.color = "black",
+  vertex.label.dist = 0.5
+)
+
+dev.off()
+
+
+```
+
+```{r}
+no_alvo <- which(V(g)$name == "temperatura_atraso3h")  # encontra índice do nó
+
+layout_sugi[no_alvo, ] <- c(500, 125)
+
+```

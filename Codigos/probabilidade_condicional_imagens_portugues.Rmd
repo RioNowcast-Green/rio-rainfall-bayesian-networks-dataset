@@ -1,0 +1,251 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+
+# Gráfico 1
+
+```{r}
+library(ggplot2)
+library(tidyr)
+library(dplyr)
+
+# ---- Dados ----
+df_rad <- data.frame(
+  
+  Variable = "Radiação",
+  Level = factor(c("Alta", "Moderada", "Baixa"), levels = c("Alta", "Moderada", "Baixa")),
+  
+  Sem_Chuva = c( 98.71, 96.81 , 86.73),
+  Chuva = c(1.29, 3.17 , 13.19),
+  Chuva_Intensa = c(0, 0.02 , 0.08)
+)
+
+df_Vento <- data.frame(
+  
+   
+# Atualizado 
+  Variable = "Vento",
+  Level = factor(c("Alta", "Moderada", "Baixa"), levels = c("Alta", "Moderada", "Baixa")),
+  Sem_Chuva = c(92.86, 87.76, 92.47),
+  Chuva = c(7.07, 12.14, 7.49),
+  Chuva_Intensa = c(0.07, 0.10, 0.04)
+)
+
+
+# Atualizado 
+df_hum <- data.frame(
+  Variable = "Umidade",
+  Level = factor(c("Alta", "Moderada", "Baixa"), levels = c("Alta", "Moderada", "Baixa")),
+  Sem_Chuva = c(86.61,97.05 , 98.90 ),
+  Chuva = c(13.32,2.93 ,1.09 ),
+  Chuva_Intensa = c(0.07, 0.02, 0.01 )
+  
+)
+
+
+# ---- Combina e alonga ----
+df_all_long <- bind_rows(df_hum, df_rad, df_Vento) |>
+  pivot_longer(c(Sem_Chuva, Chuva, Chuva_Intensa),
+               names_to = "Precipitação", values_to = "Probabilidade") |>
+  mutate(
+    
+    Variable = factor(Variable, levels = c("Umidade", "Radiação", "Vento")),
+    Precipitação = factor(Precipitação,
+                           levels = c("Sem_Chuva","Chuva","Chuva_Intensa"),
+                           labels = c("Sem_Chuva","Chuva","Chuva_Intensa")),
+    prop = Probabilidade / 100,
+    label_x = pmin(prop + 0.025, 1.25),  # mais espaço para texto
+    label_txt = paste0(sprintf("%.2f", Probabilidade), "%")
+  )
+
+# ---- Gráfico combinado ----
+g_all <- ggplot(df_all_long, aes(x = prop, y = Level, fill = Level)) +
+  geom_col(width = 0.5, color = "black", alpha = 0.8) +
+  geom_text(aes(x = label_x, label = label_txt),
+            hjust = 0, size = 4.2, fontface = "bold", color = "black") +
+  facet_grid(Precipitação ~ Variable, scales = "free_y") +
+  scale_x_continuous(labels = scales::percent_format(accuracy = 1),
+                     limits = c(0, 1.25),  # 🔹 amplia o eixo para não cortar
+                     expand = expansion(mult = c(0, 0.05))) +  # 🔹 garante respiro
+  scale_fill_manual(values = c("lightblue2","skyblue3","steelblue")) +
+  labs(x = "Probabilidade Condicional", y = "Level") +
+  theme_light(base_size = 12) +
+  theme(
+    panel.background = element_rect(fill = "white", color = NA),
+    plot.background  = element_rect(fill = "white", color = NA),
+    panel.grid = element_blank(),
+    strip.background = element_rect(fill = "beige", color = NA),
+    strip.text = element_text(face = "bold", size =011, color = "black"),
+    axis.text.x = element_text(size = 9),
+    axis.text.y = element_text(size = 9),
+    axis.title.x = element_text(size = 10),
+    axis.title.y = element_text(size = 10),
+    legend.position = "none",
+    panel.border = element_rect(color = "grey60", fill = NA),
+    plot.margin = margin(10, 40, 10, 10)  # 🔹 margem direita maior
+  )
+
+# ---- Salvar imagem ----
+dir.create("C:/Users/Pichau/INMET/probabilidades_condicionais_portugues", showWarnings = FALSE)
+
+ggsave(
+  filename = "C:/Users/Pichau/INMET/probabilidades_condicionais_portugues/prob__portugues.png",
+  plot = g_all,
+  width = 9.5,
+  height = 7,
+  dpi = 400,
+  bg = "white"
+)
+
+
+```
+
+
+
+# Gráfico 2 
+
+```{r}
+
+# Dados
+dados <- data.frame(
+  Umidade = factor(c("Alto", "Médio", "Baixo"), 
+                    levels = c("Baixo", "Médio", "Alto")),
+  Sem_Chuva = c(0.7349, 0.9688, 0.9949),
+  Chuva = c(0.2624, 0.0308, 0.0051),
+  Chuva_Intensa = c(0.0027, 0.0004, 0)
+)
+
+# Converter para formato longo
+dados_long <- dados %>%
+  pivot_longer(cols = -Umidade, names_to = "Precipitação", values_to = "Probabilidade") %>%
+  mutate(Precipitação = factor(Precipitação, 
+                                levels = c("Sem_Chuva", "Chuva", "Chuva_Intensa")))
+
+# Paleta inspirada em meteorologia (azul → chuva, azul-claro → sem chuva)
+cores <- c(
+  "Sem_Chuva" = "#A7C7E7",       # azul-claro acinzentado
+  "Chuva" = "#4A90E2",          # azul médio
+  "Chuva_Intensa" = "#001F54"   # azul escuro profundo
+)
+
+# Gráfico final
+ggplot(dados_long, aes(x = Umidade, y = Probabilidade, fill = Precipitação)) +
+  geom_bar(stat = "identity", position = position_dodge(width = 0.75), width = 0.6,
+           color = "black", linewidth = 0.2) +
+  geom_text(aes(label = sprintf("%.2f%%", Probabilidade * 100)),
+            position = position_dodge(width = 0.75),
+            vjust = -0.4, size = 3, color = "black", family = "sans") +
+  scale_fill_manual(values = cores,
+                    labels = c("Sem_Chuva", "Chuva", "Chuva_Intensa")) +
+  labs(
+    x = "Umidade Categoria (1h lag)",
+    y = "Probabilidade Condicional",
+    fill = "Precipitação",
+    title = ""
+  ) +
+  scale_y_continuous(limits = c(0, 1.05), expand = c(0, 0)) +
+  theme_minimal(base_size = 11) +
+  theme(
+    text = element_text(family = "sans"),
+  
+
+    plot.title = element_text(hjust = 0.5, size = 11.5, face = "plain"),
+    axis.title = element_text(size = 10),
+    axis.text = element_text(size = 9),
+    legend.position = "top",
+    legend.title = element_text(size = 9),
+    legend.text = element_text(size = 9),
+    panel.grid = element_blank(),
+    panel.border = element_rect(color = "grey60", fill = NA, linewidth = 0.3),
+    axis.line = element_line(color = "grey40", linewidth = 0.3),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank() 
+  )
+
+# Salvar com fundo branco
+ggsave(
+  filename = "C:/Users/Pichau/INMET/probabilidades_condicionais_portugues/vento_umidade_lag1h_portugues.png",
+  width = 6,
+  height = 4,
+  dpi = 300,
+  bg = "white"
+)
+
+```
+
+# Gráfico 3
+```{r}
+library(ggplot2)
+library(tidyr)
+library(dplyr)
+
+dados <- data.frame(
+  Umidade = factor(c("Baixo", "Medio", "Alto"), 
+                    levels = c("Baixo", "Medio", "Alto")),
+  
+  Sem_Chuva = c(0.9842, 0.9593 , 0.8067),
+  
+  Chuva = c(0.0156,0.0404, 0.1925),
+  
+  Chuva_Intensa = c(0.0002,0.0003 ,0.0008 )
+)
+
+
+# Converter para formato longo
+dados_long <- dados %>%
+  pivot_longer(cols = -Umidade, names_to = "Precipitação", values_to = "Probabilidade") %>%
+  mutate(Precipitação = factor(Precipitação, 
+                                levels = c("Sem_Chuva", "Chuva", "Chuva_Intensa")))
+
+# Paleta meteorológica (tons de azul)
+cores <- c(
+  "Sem_Chuva" = "#A7C7E7",       # azul-claro
+  "Chuva" = "#4A90E2",          # azul médio
+  "Chuva_Intensa" = "#001F54"   # azul escuro
+)
+
+# Gráfico
+ggplot(dados_long, aes(x = Umidade, y = Probabilidade, fill = Precipitação)) +
+  geom_bar(stat = "identity", position = position_dodge(width = 0.75), width = 0.6,
+           color = "black", linewidth = 0.2) +
+  geom_text(aes(label = sprintf("%.2f%%", Probabilidade * 100)),
+            position = position_dodge(width = 0.75),
+            vjust = -0.4, size = 3, color = "black", family = "sans") +
+  scale_fill_manual(values = cores,
+                    labels = c("Sem_Chuva", "Chuva", "Chuva_Intensa")) +
+  labs(
+    x = "Umidade Categoria (1h lag)",
+    y = "Probabilidade Condicional",
+    fill = "Precipitação",
+    title = ""
+  ) +
+  scale_y_continuous(limits = c(0, 1.05), expand = c(0, 0)) +
+  theme_minimal(base_size = 11) +
+  theme(
+    text = element_text(family = "sans"),
+    plot.title = element_text(hjust = 0.5, size = 11.5, face = "plain"),
+    axis.title = element_text(size = 10),
+    axis.text = element_text(size = 9),
+    legend.position = "top",
+    legend.title = element_text(size = 9),
+    legend.text = element_text(size = 9),
+    panel.grid = element_blank(),
+    panel.border = element_rect(color = "grey60", fill = NA, linewidth = 0.3),
+    axis.line = element_line(color = "grey40", linewidth = 0.3)
+  )
+
+# Salvar com fundo branco
+ggsave(
+  filename = "C:/Users/Pichau/INMET/probabilidades_condicionais_portugues/radiacao_umidade_lag1h_atualizado_portugues.png",
+  width = 6,
+  height = 4,
+  dpi = 300,
+  bg = "white"
+)
+```
+
+
+
+

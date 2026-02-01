@@ -1,0 +1,221 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+
+```{r}
+library(bnlearn)
+library(igraph)
+library(dplyr)
+library(gplots)
+library(Rgraphviz)
+
+```
+
+```{r}
+
+setwd("C:\\Users\\Pichau\\INMET")
+
+df_reduzido_discretas = read.csv("C:/Users/Pichau/INMET/TODAS_ESTACOES/df_reduzido_discretas.csv", header = TRUE, sep = ",")
+
+
+```
+
+```{r}
+# df_reduzido_discretas
+df_reduzido_discretas[] <- lapply(df_reduzido_discretas, as.factor)
+```
+
+
+# Essa black list impede que Precipitação seja variável Pai de qualquer outra. 
+
+```{r}
+# Lista das variáveis (sem incluir Precip)
+variaveis <- setdiff(names(df_reduzido_discretas), "chuva")
+
+# Criar a blacklist: impedir que Precip seja pai de qualquer variável
+blacklist <- data.frame(
+  from = rep("chuva", length(variaveis)),
+  to = variaveis
+)
+
+
+blacklist_rad <- data.frame(
+  from = c("radiacao_var1", "radiacao_var1", 'radiacao_var2'),
+  to = c("radiacao_var2", "radiacao_var3",'radiacao_var3')
+)
+
+blacklist_umi <- data.frame(
+  from = c("umid_valor1", "umid_valor1", 'umid_valor2'),
+  to = c("umid_valor2", "umid_valor3",'umid_valor3')
+)
+
+blacklist_temp <- data.frame(
+  from = c("temp_valor1", "temp_valor1", 'temp_valor2'),
+  to = c("temp_valor2", "temp_valor3",'temp_valor3')
+)
+
+blacklist_pressao <- data.frame(
+  from = c("pressao_valor1", "pressao_valor1", 'pressao_valor2'),
+  to = c("pressao_valor2", "pressao_valor3",'pressao_valor3')
+)
+
+blacklist_orvalho <- data.frame(
+  from = c("orvalho_valor1", "orvalho_valor1", 'orvalho_valor2'),
+  to = c("orvalho_valor2", "orvalho_valor3",'orvalho_valor3')
+)
+
+blacklist_vento <- data.frame(
+  from = c("vento_var1", "vento_var1", 'vento_var2'),
+  to = c("vento_var2", "vento_var3",'vento_var3')
+)
+
+blacklist_turno_estacao <- data.frame(
+  from = c("estacao_ano", "turno"),
+  to = c("turno", "estacao_ano")
+)
+
+
+blacklist_turno_outras <- data.frame(
+  from = c("radiacao_var1", "radiacao_var2", 'radiacao_var3','umid_valor1','umid_valor2', 'umid_valor3', 'temp_valor1', 'temp_valor2','temp_valor3','pressao_valor1','pressao_valor2','pressao_valor3', 'orvalho_valor1','orvalho_valor2','orvalho_valor3','vento_var1','vento_var1','vento_var1'),
+  
+  to = c("turno", "turno", 'turno', 'turno','turno','turno','turno','turno','turno','turno','turno','turno','turno','turno','turno', 'turno','turno','turno')
+)
+
+blacklist_estacao_ano_outras<- data.frame(
+  from = c("radiacao_var1", "radiacao_var2", 'radiacao_var3','umid_valor1','umid_valor2', 'umid_valor3', 'temp_valor1', 'temp_valor2','temp_valor3','pressao_valor1','pressao_valor2','pressao_valor3', 'orvalho_valor1','orvalho_valor2','orvalho_valor3','vento_var1','vento_var1','vento_var1'),
+  
+  to = c("estacao_ano", "estacao_ano", 'estacao_ano', 'estacao_ano','estacao_ano','estacao_ano','estacao_ano','estacao_ano','estacao_ano','estacao_ano','estacao_ano','estacao_ano','estacao_ano','estacao_ano','estacao_ano', 'estacao_ano','estacao_ano','estacao_ano')
+)
+
+################# Radiação ####################################################
+
+blacklist_rad_outras_1<- data.frame(
+  from = c("radiacao_var1", "radiacao_var1", 'radiacao_var1','radiacao_var1','radiacao_var1', 'radiacao_var1', 'radiacao_var1', 'radiacao_var1','radiacao_var1','radiacao_var1'),
+  
+  
+  to = c("umid_valor2", "umid_valor3", 'temp_valor2', 'temp_valor3','pressao_valor2','pressao_valor3','orvalho_valor2','orvalho_valor3','vento_var2','vento_var3')
+)
+
+blacklist_rad_outras_2 <- data.frame(
+  from = c("radiacao_var2", "radiacao_var2", 'radiacao_var2','radiacao_var2','radiacao_var2'),
+  
+  
+  to = c("umid_valor3",  'temp_valor3','pressao_valor3', 'orvalho_valor3', 'vento_var3')
+)
+
+###############################################################################
+
+################# Umidade ####################################################
+
+blacklist_umidade_outras_1<- data.frame(
+  from = c("umid_valor1", "umid_valor1", 'umid_valor1','umid_valor1','umid_valor1', 'umid_valor1', 'umid_valor1', 'umid_valor1','umid_valor1','umid_valor1'),
+  
+  
+  to = c("radiacao_var2", "radiacao_var3", 'temp_valor2', 'temp_valor3','pressao_valor2','pressao_valor3','orvalho_valor2','orvalho_valor3','vento_var2','vento_var3')
+)
+
+blacklist_umidade_outras_2 <- data.frame(
+  from = c("umid_valor2", "umid_valor2", 'umid_valor2','umid_valor2','umid_valor2'),
+  
+  
+  to = c("radiacao_var3",  'temp_valor3','pressao_valor3', 'orvalho_valor3', 'vento_var3')
+)
+
+###############################################################################
+
+################# Temperatura ####################################################
+
+
+blacklist_temperatura_outras_1<- data.frame(
+  from = c("temp_valor1", "temp_valor1", 'temp_valor1','temp_valor1','temp_valor1', 'temp_valor1', 'temp_valor1', 'temp_valor1','temp_valor1','temp_valor1'),
+  
+  
+  to = c("radiacao_var2", "radiacao_var3", 'umid_valor2', 'umid_valor3','pressao_valor2','pressao_valor3','orvalho_valor2','orvalho_valor3','vento_var2','vento_var3')
+)
+
+blacklist_temperatura_outras_2 <- data.frame(
+  from = c("temp_valor2", "temp_valor2", 'temp_valor2','temp_valor2','temp_valor2'),
+  
+  
+  to = c("radiacao_var3",  'umid_valor3','pressao_valor3', 'orvalho_valor3', 'vento_var3')
+)
+
+
+###############################################################################
+################# pressao ####################################################
+
+blacklist_pressao_outras_1<- data.frame(
+  from = c("pressao_valor1", "pressao_valor1", 'pressao_valor1','pressao_valor1','pressao_valor1', 'pressao_valor1', 'pressao_valor1', 'pressao_valor1','pressao_valor1','pressao_valor1'),
+  
+  
+  to = c("radiacao_var2", "radiacao_var3", 'umid_valor2', 'umid_valor3' ,'temp_valor2','temp_valor3','orvalho_valor2','orvalho_valor3','vento_var2','vento_var3')
+)
+
+blacklist_pressao_outras_2 <- data.frame(
+  from = c("pressao_valor2", "pressao_valor2", 'pressao_valor2','pressao_valor2','pressao_valor2'),
+  
+  
+  to = c("radiacao_var3",  'umid_valor3','temp_valor3', 'orvalho_valor3', 'vento_var3')
+)
+
+
+
+###############################################################################
+################# orvalho ####################################################
+
+blacklist_orvalho_outras_1<- data.frame(
+  from = c("orvalho_valor1", "orvalho_valor1", 'orvalho_valor1','orvalho_valor1','orvalho_valor1', 'orvalho_valor1', 'orvalho_valor1', 'orvalho_valor1','orvalho_valor1','orvalho_valor1'),
+  
+  
+  to = c("radiacao_var2", "radiacao_var3", 'umid_valor2', 'umid_valor3' ,'temp_valor2','temp_valor3','pressao_valor2','pressao_valor3','vento_var2','vento_var3')
+)
+
+blacklist_orvalho_outras_2 <- data.frame(
+  from = c("orvalho_valor2", "orvalho_valor2", 'orvalho_valor2','orvalho_valor2','orvalho_valor2'),
+  
+  
+  to = c("radiacao_var3",  'umid_valor3','temp_valor3', 'pressao_valor3', 'vento_var3')
+)
+
+
+
+###############################################################################
+
+################# vento ####################################################
+
+blacklist_vento_outras_1<- data.frame(
+  from = c("vento_var1", "vento_var1", 'vento_var1','vento_var1','vento_var1', 'vento_var1', 'vento_var1', 'vento_var1','vento_var1','vento_var1'),
+  
+  
+  to = c("radiacao_var2", "radiacao_var3", 'umid_valor2', 'umid_valor3' ,'temp_valor2','temp_valor3','pressao_valor2','pressao_valor3','orvalho_valor2','orvalho_valor3')
+)
+
+blacklist_vento_outras_2 <- data.frame(
+  from = c("vento_var2", "vento_var2", 'vento_var2','vento_var2','vento_var2'),
+  
+  
+  to = c("radiacao_var3",  'umid_valor3','temp_valor3', 'pressao_valor3', 'orvalho_valor3')
+)
+
+
+
+
+
+###############################################################################
+
+
+# Combinar com a blacklist principal
+blacklist <- rbind(blacklist, blacklist_rad,blacklist_umi,blacklist_temp, blacklist_pressao,blacklist_orvalho,blacklist_vento ,blacklist_turno_estacao, blacklist_turno_outras, blacklist_estacao_ano_outras,blacklist_rad_outras_1, blacklist_rad_outras_2, blacklist_umidade_outras_1, blacklist_umidade_outras_2, blacklist_temperatura_outras_1, blacklist_temperatura_outras_2, blacklist_pressao_outras_1, blacklist_pressao_outras_2, blacklist_orvalho_outras_1, blacklist_orvalho_outras_2, blacklist_vento_outras_1, blacklist_vento_outras_2 )
+
+
+bl = blacklist
+
+
+```
+
+```{r}
+dag_com_blacklist_BDE <- hc(df_reduzido_discretas, blacklist = bl, score = "bde")
+dag_com_blacklist_BDE
+```

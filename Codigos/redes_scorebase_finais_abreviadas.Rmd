@@ -1,0 +1,360 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+
+
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+# Importando bibliotecas
+
+```{r}
+library(bnlearn)
+library(igraph)
+library(dplyr)
+library(gplots)
+library(Rgraphviz)
+library(dplyr)
+library(ROSE)
+```
+
+```{r}
+
+setwd("C:\\Users\\Pichau\\INMET")
+
+df_reduzido_discretas = read.csv("C:/Users/Pichau/INMET/TODAS_ESTACOES/df_reduzido_discretas_renomeado.csv", header = TRUE, sep = ",")
+
+df_reduzido_discretas[] <- lapply(df_reduzido_discretas, as.factor)
+
+```
+
+```{r}
+
+
+df_reduzido_discretas <- df_reduzido_discretas %>%
+  rename(
+    # Radiation
+    R_1h = radiacao_valor1,
+    R_2h = radiacao_valor2,
+    R_3h = radiacao_valor3,
+
+    # Humidity
+    H_1h = umid_valor1, 
+    H_2h = umid_valor2, 
+    H_3h = umid_valor3,
+
+    # Temperature
+    T_1h = temp_valor1,
+    T_2h = temp_valor2,
+    T_3h = temp_valor3,
+
+    # Pressure
+    P_1h = pressao_valor1,
+    P_2h = pressao_valor2,
+    P_3h = pressao_valor3,
+
+    # Dew Point Temperature
+    DT_1h = orvalho_valor1,
+    DT_2h = orvalho_valor2,
+    DT_3h = orvalho_valor3,
+
+    # Wind Speed
+    W_1h = vento_valor1,
+    W_2h = vento_valor2,
+    W_3h = vento_valor3,
+
+    # Rain
+    Rain = chuva,
+
+    # Season
+    S = estacao_ano,
+
+    # Shift / Time of day
+    Day_p = turno
+  )
+
+df_reduzido_discretas[] <- lapply(df_reduzido_discretas, as.factor)
+
+source("C:\\Users\\Pichau\\INMET\\funcao_blacklist\\blacklist_siglas.R")
+
+
+```
+
+# Estrutura da Rede Bayesiana Hc aic
+```{r}
+rb_aic <- hc(df_reduzido_discretas, blacklist = bl, score = "aic")
+rb_aic
+```
+
+# BOOTSTRAP, 300 vezes para calcular a estrutura da rede média HC aic. 
+
+```{r}
+
+str.diff_aic = boot.strength(df_reduzido_discretas, R = 300, algorithm = "hc",
+                             algorithm.args = list(blacklist = bl, score = "aic"))
+
+```
+
+
+```{r}
+avg.simpler = averaged.network(str.diff_aic, threshold = 0.85)
+
+avg.simpler
+```
+# Gerou undirected arcs:   
+
+
+```{r}
+avg.simpler <- bnlearn::drop.arc(avg.simpler, from = "R_3h", to = "P_3h")
+avg.simpler <- bnlearn::drop.arc(avg.simpler, from = "P_3h", to = "R_3h")
+avg.simpler
+```
+
+
+```{r}
+no_alvo <- which(V(g)$name == "T_3H")  # encontra índice do nó
+
+layout_sugi[no_alvo, ] <- c(500, 125)
+```
+
+
+
+
+```{r}
+library(igraph)
+
+g <- as.igraph(avg.simpler)
+
+layout_sugi <- layout_with_sugiyama(g)$layout
+
+# Ajustar espaçamento
+layout_sugi[,2] <- layout_sugi[,2] * 15 # aumenta distância vertical
+layout_sugi[,1] <- layout_sugi[,1] * 20.5  # aumenta distância horizontal
+
+
+no_alvo <- which(V(g)$name == "R_2h")  # encontra índice do nó
+
+layout_sugi[no_alvo, ] <- c(540, 135)      # define nova posição
+
+no_alvo <- which(V(g)$name == "T_3h")  # encontra índice do nó
+
+layout_sugi[no_alvo, ] <- c(330, 125)
+
+
+
+png("C:/Users/Pichau/INMET/Estruturas das Redes Bayesianas/REDE_FINAL/estrutura_final_HC_aic_abreviada.png", 
+    width = 6440, height = 6160, res = 300  )
+
+plot(
+  g,
+  layout = layout_sugi,
+  vertex.label = V(g)$name,
+  vertex.label.cex = 2.20,
+  vertex.label.font = 2 ,  
+  vertex.label.color = "black",
+  vertex.label.dist = 0,
+  vertex.size = 25,
+  vertex.color = "lightblue",
+  vertex.shape = "rectangle",
+  edge.arrow.size = 0.4,
+  edge.color = "black",
+  margin = -0.11,
+  vertex.frame.color = "black",
+  vertex.label.dist = 0.5
+)
+
+dev.off()
+
+
+```
+
+
+
+# Estrutura da Rede Bayesiana Hc k2
+```{r}
+rb_k2 <- hc(df_reduzido_discretas, blacklist = bl, score = "k2")
+rb_k2
+```
+
+# BOOTSTRAP, 300 vezes para calcular a estrutura da rede média HC k2. 
+
+```{r}
+
+str.diff_k2 = boot.strength(df_reduzido_discretas, R = 300, algorithm = "hc",
+                             algorithm.args = list(blacklist = bl, score = "k2"))
+
+```
+
+
+```{r}
+avg.simpler = averaged.network(str.diff_k2, threshold = 0.85)
+
+avg.simpler
+```
+# Gerou undirected arcs:   
+
+
+```{r}
+avg.simpler <- bnlearn::drop.arc(avg.simpler, from = "R_3h", to = "P_3h")
+avg.simpler <- bnlearn::drop.arc(avg.simpler, from = "P_3h", to = "R_3h")
+avg.simpler
+```
+
+
+```{r}
+no_alvo <- which(V(g)$name == "T_3H")  # encontra índice do nó
+
+layout_sugi[no_alvo, ] <- c(500, 125)
+```
+
+
+
+
+```{r}
+library(igraph)
+
+g <- as.igraph(avg.simpler)
+
+layout_sugi <- layout_with_sugiyama(g)$layout
+
+# Ajustar espaçamento
+layout_sugi[,2] <- layout_sugi[,2] * 15 # aumenta distância vertical
+layout_sugi[,1] <- layout_sugi[,1] * 20.5  # aumenta distância horizontal
+
+
+no_alvo <- which(V(g)$name == "R_2h")  # encontra índice do nó
+
+layout_sugi[no_alvo, ] <- c(540, 135)      # define nova posição
+
+no_alvo <- which(V(g)$name == "T_3h")  # encontra índice do nó
+
+layout_sugi[no_alvo, ] <- c(330, 125)
+
+
+
+png("C:/Users/Pichau/INMET/Estruturas das Redes Bayesianas/REDE_FINAL/estrutura_final_HC_k2_abreviada.png", 
+    width = 6440, height = 6160, res = 300  )
+
+plot(
+  g,
+  layout = layout_sugi,
+  vertex.label = V(g)$name,
+  vertex.label.cex = 2.20,
+  vertex.label.font = 2 ,  
+  vertex.label.color = "black",
+  vertex.label.dist = 0,
+  vertex.size = 25,
+  vertex.color = "lightblue",
+  vertex.shape = "rectangle",
+  edge.arrow.size = 0.4,
+  edge.color = "black",
+  margin = -0.11,
+  vertex.frame.color = "black",
+  vertex.label.dist = 0.5
+)
+
+dev.off()
+
+
+```
+
+
+
+
+# Estrutura da Rede Bayesiana Hc bde
+```{r}
+rb_bde <- hc(df_reduzido_discretas, blacklist = bl, score = "bde")
+rb_bde
+```
+
+# BOOTSTRAP, 300 vezes para calcular a estrutura da rede média HC bde. 
+
+```{r}
+
+str.diff_bde = boot.strength(df_reduzido_discretas, R = 300, algorithm = "hc",
+                             algorithm.args = list(blacklist = bl, score = "bde"))
+
+```
+
+
+```{r}
+avg.simpler = averaged.network(str.diff_bde, threshold = 0.85)
+
+avg.simpler
+```
+# Gerou undirected arcs:   
+
+
+```{r}
+avg.simpler <- bnlearn::drop.arc(avg.simpler, from = "R_3h", to = "P_3h")
+avg.simpler <- bnlearn::drop.arc(avg.simpler, from = "P_3h", to = "R_3h")
+avg.simpler
+```
+
+
+```{r}
+no_alvo <- which(V(g)$name == "T_3H")  # encontra índice do nó
+
+layout_sugi[no_alvo, ] <- c(500, 125)
+```
+
+
+
+
+```{r}
+library(igraph)
+
+g <- as.igraph(avg.simpler)
+
+layout_sugi <- layout_with_sugiyama(g)$layout
+
+# Ajustar espaçamento
+layout_sugi[,2] <- layout_sugi[,2] * 15 # aumenta distância vertical
+layout_sugi[,1] <- layout_sugi[,1] * 20.5  # aumenta distância horizontal
+
+
+no_alvo <- which(V(g)$name == "R_2h")  # encontra índice do nó
+
+layout_sugi[no_alvo, ] <- c(540, 135)      # define nova posição
+
+no_alvo <- which(V(g)$name == "T_3h")  # encontra índice do nó
+
+layout_sugi[no_alvo, ] <- c(330, 125)
+
+
+
+png("C:/Users/Pichau/INMET/Estruturas das Redes Bayesianas/REDE_FINAL/estrutura_final_HC_bde_abreviada.png", 
+    width = 6440, height = 6160, res = 300  )
+
+plot(
+  g,
+  layout = layout_sugi,
+  vertex.label = V(g)$name,
+  vertex.label.cex = 2.20,
+  vertex.label.font = 2 ,  
+  vertex.label.color = "black",
+  vertex.label.dist = 0,
+  vertex.size = 25,
+  vertex.color = "lightblue",
+  vertex.shape = "rectangle",
+  edge.arrow.size = 0.4,
+  edge.color = "black",
+  margin = -0.11,
+  vertex.frame.color = "black",
+  vertex.label.dist = 0.5
+)
+
+dev.off()
+
+
+```
+
+
+
+
+
+

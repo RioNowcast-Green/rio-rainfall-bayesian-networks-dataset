@@ -1,0 +1,89 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+
+```{r}
+library(bnlearn)
+library(igraph)
+library(dplyr)
+library(gplots)
+library(Rgraphviz)
+library(dplyr)
+library(ROSE)
+```
+
+# Importando os dados
+
+```{r}
+
+setwd("C:\\Users\\Pichau\\INMET")
+
+df_reduzido_discretas = read.csv("C:/Users/Pichau/INMET/TODAS_ESTACOES/df_reduzido_discretas_renomeado.csv", header = TRUE, sep = ",")
+
+df_reduzido_discretas[] <- lapply(df_reduzido_discretas, as.factor)
+
+```
+
+# Blacklist
+```{r}
+source("C:\\Users\\Pichau\\INMET\\funcao_blacklist\\blacklist.R")
+# bl
+```
+
+# Estrutura da Rede Bayesiana TABU bic
+```{r}
+rb_bic_tabu <- tabu(df_reduzido_discretas, blacklist = bl, score = "bic")
+
+
+
+rb_bic_hc<- hc(df_reduzido_discretas, blacklist = bl, score = "bic")
+
+
+```
+
+
+# BOOTSTRAP, 300 vezes para calcular a estrutura da rede média tabu bic. 
+
+```{r}
+
+str.diff_bic_tabu = boot.strength(df_reduzido_discretas, R = 300, algorithm = "tabu",
+                             algorithm.args = list(blacklist = bl, score = "bic"))
+
+
+str.diff_bic_hc = boot.strength(df_reduzido_discretas, R = 300, algorithm = "hc",
+                             algorithm.args = list(blacklist = bl, score = "bic"))
+
+
+
+```
+
+
+
+# Criando uma rede mais simples, com força dos arcos maior que 0.85
+```{r}
+avg.simpler_tabu = averaged.network(str.diff_bic_tabu, threshold =0.85)
+
+avg.simpler_bic = averaged.network(str.diff_bic_hc, threshold =0.85)
+
+```
+
+```{r}
+avg.simpler_tabu 
+```
+```{r}
+avg.simpler_bic = averaged.network(str.diff_bic_hc, threshold =0.8)
+```
+
+```{r}
+avg.simpler_bic
+```
+
+
+# Verifica se a rede média e a rede única são iguais. 
+
+```{r}
+all.equal(avg.simpler_tabu, avg.simpler_bic )
+```
+
