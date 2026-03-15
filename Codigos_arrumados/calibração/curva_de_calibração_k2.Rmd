@@ -1,0 +1,351 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
+# Importando bibliotecas
+
+```{r}
+library(bnlearn)
+library(igraph)
+library(dplyr)
+library(gplots)
+library(Rgraphviz)
+
+library(ROSE)
+library(caret)
+library(scales)
+
+
+```
+
+
+
+# Importando os dados
+
+```{r}
+
+setwd("C:\\Users\\Pichau\\INMET")
+
+df_reduzido_discretas = read.csv("C:/Users/Pichau/INMET/TODAS_ESTACOES/df_reduzido_discretas_renomeado.csv", header = TRUE, sep = ",")
+
+df_reduzido_discretas[] <- lapply(df_reduzido_discretas, as.factor)
+````
+
+
+
+# Renomeando as variaveis
+
+```{r}
+
+df_reduzido_discretas <- df_reduzido_discretas %>%
+  rename(
+    
+    radiacao_atraso1h = radiacao_valor1,
+    radiacao_atraso2h = radiacao_valor2,
+    radiacao_atraso3h = radiacao_valor3,
+    
+    umidade_atraso1h = umid_valor1, 
+    umidade_atraso2h = umid_valor2, 
+    umidade_atraso3h = umid_valor3,
+   
+    temperatura_atraso1h = temp_valor1,
+    temperatura_atraso2h = temp_valor2,
+    temperatura_atraso3h = temp_valor3,
+   
+   pressao_atraso1h = pressao_valor1,
+   pressao_atraso2h = pressao_valor2,
+   pressao_atraso3h = pressao_valor3,
+    
+  temp_orvalho_atraso1h = orvalho_valor1,
+  temp_orvalho_atraso2h = orvalho_valor2,
+  temp_orvalho_atraso3h = orvalho_valor3,
+   
+  vento_atraso1h = vento_valor1,
+  vento_atraso2h = vento_valor2,
+  vento_atraso3h = vento_valor3,
+   
+  chuva = chuva ,
+    
+  estacao_do_ano = estacao_ano,
+   
+  turno = turno
+    
+  )
+
+```
+
+
+
+
+# Blacklist
+```{r}
+source("C:\\Users\\Pichau\\INMET\\funcao_blacklist\\blacklist.R")
+```
+
+
+# ACERTANDO A BASE PARA PREDIÇÃO
+
+
+```{r}
+
+# Crio uma nova coluna chamada precip, onde for "Sem chuva" recebe "Sem chuva", onde for "Chuva" e "Chuva Extrema" recebe "Chuva". 
+
+df_reduzido_discretas$precip <- NA
+  
+
+df_reduzido_discretas$precip[df_reduzido_discretas$chuva == "Sem chuva"] <- "Sem chuva"
+df_reduzido_discretas$precip[df_reduzido_discretas$chuva == "Chuva" | df_reduzido_discretas$chuva == "Chuva Extrema"] <- "Chuva"
+
+```
+
+```{r}
+# removendo o campo chuva
+df_chuva <- df_reduzido_discretas %>%
+  select(-chuva)
+```
+
+```{r}
+df_chuva[] <- lapply(df_chuva, as.factor)
+
+```
+
+
+```{r}
+if ("precip" %in% names(df_chuva)) {
+  names(df_chuva)[names(df_chuva) == "precip"] <- "chuva"
+}
+
+```
+
+# Validação cruzada, k2
+
+```{r}
+set.seed(123)
+
+k <-5 # Número de folds
+
+folds <- createFolds(df_chuva$chuva, k = k, list = TRUE, returnTrain = FALSE)
+
+metricas <- data.frame(
+  Fold = 1:k, Acuracia = NA, Sensibilidade = NA, Especificidade = NA,
+  Precisao = NA, F1 = NA, FPR = NA, FNR = NA
+)
+```
+
+
+```{r}
+
+for (i in 1:k) {
+  cat("\n---- Fold", i, "----\n")
+  
+  idx_teste <- folds[[i]]
+  df_teste <- df_chuva[idx_teste, ]
+  df_treino <- df_chuva[-idx_teste, ]
+  
+  # Balanceamento com undersampling
+  target_count <- as.numeric(table(df_treino$chuva)["Chuva"])
+  total_samples <- target_count * 2
+  df_treino_balanceado <- ovun.sample(chuva ~ ., data = df_treino, method = "under", N = total_samples, seed = 456)$data
+  
+  # Corrigir níveis e tipos de variáveis após o balanceamento
+  for (col in names(df_treino_balanceado)) {
+  # Corrige tipo: mantém como fator se já era fator, ou numérico se era numérico no dataset original
+    if (is.factor(df_treino[[col]])) {
+     df_treino_balanceado[[col]] <- factor(df_treino_balanceado[[col]],
+                                          levels = levels(df_treino[[col]]))
+   } else {
+      df_treino_balanceado[[col]] <- as.numeric(as.character(df_treino_balanceado[[col]]))
+    }
+  }
+
+  
+
+  # Aprendizado de estrutura + parâmetros
+  estrutura <- hc(df_treino_balanceado, score = "k2", blacklist = bl)
+  modelo <- bn.fit(estrutura, df_treino_balanceado)
+  
+  # Predição
+  pred <- predict(modelo, node = "chuva", data = df_teste)
+  real <- df_teste$chuva
+  
+  pred <- factor(pred, levels = c("Sem chuva", "Chuva"))
+  real <- factor(real, levels = c("Sem chuva", "Chuva"))
+  
+  indices_validos <- !is.na(pred) & !is.na(real)
+  pred <- pred[indices_validos]
+  real <- real[indices_validos]
+  
+  # Matriz de confusão e métricas
+  cm <- confusionMatrix(pred, real, positive = "Chuva")
+  
+
+  
+    # Métricas principais
+  metricas$Acuracia[i] <- cm$overall["Accuracy"]
+  metricas$Sensibilidade[i] <- cm$byClass["Sensitivity"]
+  metricas$Especificidade[i] <- cm$byClass["Specificity"]
+  
+  # Métricas derivadas
+  metricas$Precisao[i] <- cm$byClass["Precision"]
+  metricas$F1[i] <- cm$byClass["F1"]
+  metricas$FPR[i] <- 1 - cm$byClass["Specificity"]
+  metricas$FNR[i] <- 1 - cm$byClass["Sensitivity"]
+  
+  # Mostrar resultado do fold atual
+  cat("Acurácia:", round(metricas$Acuracia[i], 4),
+      "| Sensibilidade:", round(metricas$Sensibilidade[i], 4),
+      "| Especificidade:", round(metricas$Especificidade[i], 4), "\n")
+
+}
+
+# ---------------------------
+# Resultados Finais
+# ---------------------------
+
+cat("\n==== MÉDIAS DAS MÉTRICAS (Validação Cruzada) ====\n")
+print(round(colMeans(metricas[, -1], na.rm = TRUE), 4))
+
+```
+
+```{r}
+library(bnlearn)
+library(pROC)
+library(ROSE)
+
+# Divisão treino-teste (exemplo: 70/30)
+set.seed(123)
+idx_teste <- sample(seq_len(nrow(df_chuva)), size = 0.3 * nrow(df_chuva))
+df_treino <- df_chuva[-idx_teste, ]
+df_teste  <- df_chuva[idx_teste, ]
+
+# Balanceamento
+target_count <- as.numeric(table(df_treino$chuva)["Chuva"])
+total_samples <- target_count * 2
+df_treino_balanceado <- ovun.sample(chuva ~ ., data = df_treino,
+                                    method = "under", N = total_samples, seed = 123)$data
+
+# Correção dos níveis
+for (col in names(df_treino_balanceado)) {
+  if (is.factor(df_treino[[col]])) {
+    df_treino_balanceado[[col]] <- factor(df_treino_balanceado[[col]],
+                                          levels = levels(df_treino[[col]]))
+  } else {
+    df_treino_balanceado[[col]] <- as.numeric(as.character(df_treino_balanceado[[col]]))
+  }
+}
+
+# Aprendizado e ajuste
+estrutura <- hc(df_treino_balanceado, score = "k2", blacklist = bl)
+modelo <- bn.fit(estrutura, df_treino_balanceado)
+
+
+
+# Supondo que 'modelo' e 'df_teste' já estão definidos:
+
+pred <- predict(modelo, node = "chuva", data = df_teste, prob = TRUE)
+
+probs <- attributes(pred)$prob
+
+# Extrai a probabilidade da classe positiva "Chuva"
+probs_chuva <- probs["Chuva", ]
+
+
+
+# Converte a variável real para 0/1
+reais <- as.numeric(df_teste$chuva == "Chuva")
+
+# Curva ROC
+roc_obj <- roc(reais, probs_chuva, levels = c(0,1), direction = "<")
+
+# Plot
+plot(roc_obj,
+     col = "#1c61b6",
+     lwd = 2,
+     legacy.axes = TRUE,      # deixa o eixo X de 0 a 1
+     print.auc = TRUE,        # opcional, mostra o AUC no gráfico
+     auc.polygon = FALSE,     # não desenha polígono de AUC
+     grid = FALSE             # remove as linhas diagonais
+)
+
+
+text(x = -0.3, y = 0.05, size = 4, labels = "BN: HC–K2", col = "red", family = "serif")
+
+# AUC
+auc_valor <- auc(roc_obj)
+cat("\nÁrea sob a Curva (AUC):", round(auc_valor, 4), "\n")
+
+
+
+
+
+
+```
+
+
+# curva de calibração (também chamada de gráfico de confiabilidade ou calibration plot), usada para avaliar se as probabilidades previstas pelo  modelo (no seu caso, pela rede bayesiana) estão bem calibradas em relação às frequências observadas.
+
+# k2
+
+````{r}
+# Instalar se necessário
+# install.packages(c("caret", "ggplot2"))
+
+library(caret)
+library(ggplot2)
+
+# === Dados: reais e probabilidades ===
+# reais -> variável binária (0/1)
+# probs_chuva -> probabilidade prevista da classe "Chuva"
+
+# Cria um data frame com o observado e o previsto
+dados_cal <- data.frame(
+  observado = as.numeric(df_teste$chuva == "Chuva"),
+  previsto = as.numeric(probs_chuva)
+)
+
+# Cria faixas de probabilidade (bins)
+dados_cal$bin <- cut(dados_cal$previsto,
+                     breaks = seq(0, 1, by = 0.01),
+                     include.lowest = TRUE)
+
+# Calcula a média observada e prevista por bin
+cal_data <- aggregate(cbind(previsto, observado) ~ bin, data = dados_cal, mean)
+
+# === Calcula A e B ===
+modelo_cal <- lm(observado ~ previsto, data = cal_data)
+A <- round(coef(modelo_cal)[1], 3)
+B <- round(coef(modelo_cal)[2], 3)
+
+
+# === Gráfico de calibração ===
+ggplot(cal_data, aes(x = previsto, y = observado)) +
+  geom_point(size = 2, color = "black") +
+  geom_abline(intercept = 0, slope = 1, linetype = "solid") +
+  labs(x = "Predicted Risk", y = "Observed Risk") +
+  scale_y_continuous(limits = c(0, 1)) +   # <-- ajusta o eixo Y
+
+  theme_bw(base_size = 14)+
+  theme(
+    panel.grid.major = element_blank(),  # remove linhas de grade principais
+    panel.grid.minor = element_blank(),  # remove linhas de grade secundárias
+    panel.border = element_rect(color = "black", fill = NA, linewidth = 0.6), # mantém a borda do painel
+    axis.title.x = element_text(size = 12),  
+    axis.title.y = element_text(size = 12) 
+    
+  )  +
+
+  annotate("text",
+           x = 0.1, y = 0.9,
+           label = paste0("A = ", A, "  B = ", B),
+           size = 4, family = "serif") +
+  annotate("text",
+           x = 0.97, y = 0.01,
+           label = "BN: HC–K2",
+           color = "red", size = 4, family = "serif")
+
+```
+

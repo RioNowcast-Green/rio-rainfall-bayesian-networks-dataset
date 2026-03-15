@@ -1,0 +1,672 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+
+# Importando bibliotecas
+
+
+```{r}
+library(bnlearn)
+library(igraph)
+library(dplyr)
+library(gplots)
+library(Rgraphviz)
+```
+
+# Importando os dados
+
+```{r}
+
+setwd("C:\\Users\\Pichau\\INMET")
+df_reduzido_discretas = read.csv("C:/Users/Pichau/INMET/TODAS_ESTACOES/df_reduzido_discretas_renomeado.csv", header = TRUE, sep = ",")
+df_reduzido_discretas[] <- lapply(df_reduzido_discretas, as.factor)
+
+```
+
+
+# Renomeando as variaveis
+
+```{r}
+
+df_reduzido_discretas <- df_reduzido_discretas %>%
+  rename(
+    
+    radiacao_atraso1h = radiacao_valor1,
+    radiacao_atraso2h = radiacao_valor2,
+    radiacao_atraso3h = radiacao_valor3,
+    
+    umidade_atraso1h = umid_valor1, 
+    umidade_atraso2h = umid_valor2, 
+    umidade_atraso3h = umid_valor3,
+   
+    temperatura_atraso1h = temp_valor1,
+    temperatura_atraso2h = temp_valor2,
+    temperatura_atraso3h = temp_valor3,
+   
+   pressao_atraso1h = pressao_valor1,
+   pressao_atraso2h = pressao_valor2,
+   pressao_atraso3h = pressao_valor3,
+    
+  temp_orvalho_atraso1h = orvalho_valor1,
+  temp_orvalho_atraso2h = orvalho_valor2,
+  temp_orvalho_atraso3h = orvalho_valor3,
+   
+  vento_atraso1h = vento_valor1,
+  vento_atraso2h = vento_valor2,
+  vento_atraso3h = vento_valor3,
+   
+  chuva = chuva ,
+    
+  estacao_do_ano = estacao_ano,
+   
+  turno = turno
+    
+  )
+
+df_reduzido_discretas
+```
+
+
+# Blacklist
+```{r}
+source("C:\\Users\\Pichau\\INMET\\funcao_blacklist\\blacklist.R")
+
+```
+
+
+
+
+
+# BOOTSTRAP, 300 vezes para calcular a estrutura da rede média hc k2. 
+
+```{r}
+
+
+str.diff_k2_hc = boot.strength(df_reduzido_discretas, R = 300, algorithm = "hc",
+                             algorithm.args = list(blacklist = bl, score = "k2"))
+
+
+avg.diff = averaged.network(str.diff_k2_hc)
+
+```
+
+
+# Criando uma rede mais simples, com força dos arcos maior que 0.85
+```{r}
+avg.simpler = avg.diff
+
+avg.simpler <- bnlearn::drop.arc(avg.simpler, from = "radiacao_atraso3h", to = "temp_orvalho_atraso3h")
+avg.simpler <- bnlearn::drop.arc(avg.simpler, from = "temp_orvalho_atraso3h", to = "radiacao_atraso3h")
+
+avg.simpler <- bnlearn::drop.arc(avg.simpler, from = "pressao_atraso3h", to = "vento_atraso3h")
+avg.simpler <- bnlearn::drop.arc(avg.simpler, from = "vento_atraso3h", to = "pressao_atraso3h")
+
+```
+
+```{r}
+fitted_avg <- bn.fit(avg.simpler, data = df_reduzido_discretas)
+```
+
+################################################################################
+################################################################################
+################################################################################
+################################################################################
+
+# Inferências sobre umidade. 
+
+# levels(df_reduzido_discretas$umidade_atraso1h)
+# "alto"  "baixo" "medio"
+
+# levels(df_reduzido_discretas$chuva) 
+# "Chuva" "Chuva Extrema" "Sem chuva"
+
+
+
+# Para umidade baixa.
+
+```{r}
+# Número de execuções.
+num_execucoes <- 3000
+
+# Vetor para armazenar os resultados.
+resultados_sem_chuva <- numeric(num_execucoes)
+resultados_chuva <- numeric(num_execucoes)
+resultados_chuva_extrema <- numeric(num_execucoes)
+
+
+
+# Loop para executar a consulta várias vezes
+for (i in 1:num_execucoes) {
+  
+  resultados_sem_chuva[i] <- cpquery(fitted_avg, (chuva == "Sem chuva"), (umidade_atraso1h == "baixo"), n = 50000)
+  resultados_chuva[i] <- cpquery(fitted_avg, (chuva == "Chuva"), (umidade_atraso1h == "baixo"), n = 50000)
+  resultados_chuva_extrema[i] <- cpquery(fitted_avg, (chuva == "Chuva Extrema"), (umidade_atraso1h == "baixo"), n = 50000)
+
+}
+
+
+media_sem_chuva <- mean(resultados_sem_chuva)
+media_chuva <- mean(resultados_chuva)
+media_chuva_extrema <- mean(resultados_chuva_extrema)
+
+
+# Imprima os resultados
+cat("Estimativa Pontual (Média): da probabilidade de não chover dado que a umidade estava baixa", media_sem_chuva, "\n")
+cat("Estimativa Pontual (Média): da probabilidade de chover dado que a umidade estava baixa", media_chuva, "\n")
+cat("Estimativa Pontual (Média): da probabilidade de chuva extrema dado que a umidade estava baixa", media_chuva_extrema, "\n")
+
+```
+
+# Para umidade medio.
+
+```{r}
+# Número de execuções.
+num_execucoes <- 3000
+
+# Vetor para armazenar os resultados.
+resultados_sem_chuva <- numeric(num_execucoes)
+resultados_chuva <- numeric(num_execucoes)
+resultados_chuva_extrema <- numeric(num_execucoes)
+
+
+
+# Loop para executar a consulta várias vezes
+for (i in 1:num_execucoes) {
+  
+  resultados_sem_chuva[i] <- cpquery(fitted_avg, (chuva == "Sem chuva"), (umidade_atraso1h == "medio"), n = 50000)
+  resultados_chuva[i] <- cpquery(fitted_avg, (chuva == "Chuva"), (umidade_atraso1h == "medio"), n = 50000)
+  resultados_chuva_extrema[i] <- cpquery(fitted_avg, (chuva == "Chuva Extrema"), (umidade_atraso1h == "medio"), n = 50000)
+
+}
+
+
+media_sem_chuva <- mean(resultados_sem_chuva)
+media_chuva <- mean(resultados_chuva)
+media_chuva_extrema <- mean(resultados_chuva_extrema)
+
+
+# Imprima os resultados
+cat("Estimativa Pontual (Média): da probabilidade de não chover dado que a umidade estava medio", media_sem_chuva, "\n")
+cat("Estimativa Pontual (Média): da probabilidade de chover dado que a umidade estava medio", media_chuva, "\n")
+cat("Estimativa Pontual (Média): da probabilidade de chuva extrema dado que a umidade estava medio", media_chuva_extrema, "\n")
+
+```
+
+
+# Para umidade alto.
+
+```{r}
+# Número de execuções.
+num_execucoes <- 3000
+
+# Vetor para armazenar os resultados.
+resultados_sem_chuva <- numeric(num_execucoes)
+resultados_chuva <- numeric(num_execucoes)
+resultados_chuva_extrema <- numeric(num_execucoes)
+
+
+
+# Loop para executar a consulta várias vezes
+for (i in 1:num_execucoes) {
+  
+  resultados_sem_chuva[i] <- cpquery(fitted_avg, (chuva == "Sem chuva"), (umidade_atraso1h == "alto"), n = 50000)
+  resultados_chuva[i] <- cpquery(fitted_avg, (chuva == "Chuva"), (umidade_atraso1h == "alto"), n = 50000)
+  resultados_chuva_extrema[i] <- cpquery(fitted_avg, (chuva == "Chuva Extrema"), (umidade_atraso1h == "alto"), n = 50000)
+
+}
+
+
+media_sem_chuva <- mean(resultados_sem_chuva)
+media_chuva <- mean(resultados_chuva)
+media_chuva_extrema <- mean(resultados_chuva_extrema)
+
+
+# Imprima os resultados
+cat("Estimativa Pontual (Média): da probabilidade de não chover dado que a umidade estava alto", media_sem_chuva, "\n")
+cat("Estimativa Pontual (Média): da probabilidade de chover dado que a umidade estava alto", media_chuva, "\n")
+cat("Estimativa Pontual (Média): da probabilidade de chuva extrema dado que a umidade estava alto", media_chuva_extrema, "\n")
+
+```
+
+
+################################################################################
+
+# Fixando vento = moderado
+
+
+# Para umidade baixo.
+
+```{r}
+# Número de execuções.
+num_execucoes <- 3000
+
+# Vetor para armazenar os resultados.
+resultados_sem_chuva <- numeric(num_execucoes)
+resultados_chuva <- numeric(num_execucoes)
+resultados_chuva_extrema <- numeric(num_execucoes)
+
+
+
+# Loop para executar a consulta várias vezes
+for (i in 1:num_execucoes) {
+  
+  resultados_sem_chuva[i] <- cpquery(fitted_avg, (chuva == "Sem chuva"), (umidade_atraso1h == "baixo" & vento_atraso1h == "medio"), n = 50000)
+  resultados_chuva[i] <- cpquery(fitted_avg, (chuva == "Chuva"), (umidade_atraso1h == "baixo" & vento_atraso1h == "medio"), n = 50000)
+  resultados_chuva_extrema[i] <- cpquery(fitted_avg, (chuva == "Chuva Extrema"), (umidade_atraso1h == "baixo" & vento_atraso1h == "medio"  ), n = 50000)
+
+}
+
+
+media_sem_chuva <- mean(resultados_sem_chuva)
+media_chuva <- mean(resultados_chuva)
+media_chuva_extrema <- mean(resultados_chuva_extrema)
+
+
+# Imprima os resultados
+cat("Estimativa Pontual (Média): da probabilidade de não chover dado que a umidade estava baixa e vento medio" , media_sem_chuva, "\n")
+cat("Estimativa Pontual (Média): da probabilidade de chover dado que a umidade estava baixa e vento medio", media_chuva, "\n")
+cat("Estimativa Pontual (Média): da probabilidade de chuva extrema dado que a umidade estava baixa e vento medio", media_chuva_extrema, "\n")
+
+```
+
+
+# Fixando vento = moderado
+# Para umidade medio.
+
+```{r}
+# Número de execuções.
+num_execucoes <- 5000
+
+# Vetor para armazenar os resultados.
+resultados_sem_chuva <- numeric(num_execucoes)
+resultados_chuva <- numeric(num_execucoes)
+resultados_chuva_extrema <- numeric(num_execucoes)
+
+
+
+# Loop para executar a consulta várias vezes
+for (i in 1:num_execucoes) {
+  
+  resultados_sem_chuva[i] <- cpquery(fitted_avg, (chuva == "Sem chuva"), (umidade_atraso1h == "medio" & vento_atraso1h == "medio"), n = 50000)
+  resultados_chuva[i] <- cpquery(fitted_avg, (chuva == "Chuva"), (umidade_atraso1h == "medio" & vento_atraso1h == "medio"), n = 50000)
+  resultados_chuva_extrema[i] <- cpquery(fitted_avg, (chuva == "Chuva Extrema"), (umidade_atraso1h == "medio" & vento_atraso1h == "medio"  ), n = 50000)
+
+}
+
+
+media_sem_chuva <- mean(resultados_sem_chuva)
+media_chuva <- mean(resultados_chuva)
+media_chuva_extrema <- mean(resultados_chuva_extrema)
+
+
+# Imprima os resultados
+cat("Estimativa Pontual (Média): da probabilidade de não chover dado que a umidade estava medio e vento medio" , media_sem_chuva, "\n")
+cat("Estimativa Pontual (Média): da probabilidade de chover dado que a umidade estava medio e vento medio", media_chuva, "\n")
+cat("Estimativa Pontual (Média): da probabilidade de chuva extrema dado que a umidade estava medio e vento medio", media_chuva_extrema, "\n")
+
+```
+
+
+
+# Fixando vento = moderado
+# Para umidade alto.
+
+```{r}
+# Número de execuções.
+num_execucoes <- 5000
+
+# Vetor para armazenar os resultados.
+resultados_sem_chuva <- numeric(num_execucoes)
+media_chuva <- numeric(num_execucoes)
+resultados_chuva_extrema <- numeric(num_execucoes)
+
+
+
+# Loop para executar a consulta várias vezes
+for (i in 1:num_execucoes) {
+  
+  resultados_sem_chuva[i] <- cpquery(fitted_avg, (chuva == "Sem chuva"), (umidade_atraso1h == "alto" & vento_atraso1h == "medio"), n = 50000)
+  resultados_chuva[i] <- cpquery(fitted_avg, (chuva == "Chuva"), (umidade_atraso1h == "alto" & vento_atraso1h == "medio"), n = 50000)
+  resultados_chuva_extrema[i] <- cpquery(fitted_avg, (chuva == "Chuva Extrema"), (umidade_atraso1h == "alto" & vento_atraso1h == "medio"  ), n = 50000)
+
+}
+
+
+media_sem_chuva <- mean(resultados_sem_chuva)
+media_chuva <- mean(resultados_chuva)
+media_chuva_extrema <- mean(resultados_chuva_extrema)
+
+
+# Imprima os resultados
+cat("Estimativa Pontual (Média): da probabilidade de não chover dado que a umidade estava alta e vento medio" , media_sem_chuva, "\n")
+cat("Estimativa Pontual (Média): da probabilidade de chover dado que a umidade estava alta e vento medio", media_chuva, "\n")
+cat("Estimativa Pontual (Média): da probabilidade de chuva extrema dado que a umidade estava alta e vento medio", media_chuva_extrema, "\n")
+
+```
+
+
+
+# Fixando radiacao_atraso1h == "baixo ou nenhuma 0"
+# Para umidade baixo.
+
+```{r}
+# Número de execuções.
+num_execucoes <- 3000
+
+# Vetor para armazenar os resultados.
+resultados_sem_chuva <- numeric(num_execucoes)
+resultados_chuva <- numeric(num_execucoes)
+resultados_chuva_extrema <- numeric(num_execucoes)
+
+
+
+# Loop para executar a consulta várias vezes
+for (i in 1:num_execucoes) {
+  
+  resultados_sem_chuva[i] <- cpquery(fitted_avg, (chuva == "Sem chuva"), (umidade_atraso1h == "baixo" & radiacao_atraso1h == "baixo ou nenhuma 0"), n = 50000)
+  resultados_chuva[i] <- cpquery(fitted_avg, (chuva == "Chuva"), (umidade_atraso1h == "baixo" & radiacao_atraso1h == "baixo ou nenhuma 0"), n = 50000)
+  resultados_chuva_extrema[i] <- cpquery(fitted_avg, (chuva == "Chuva Extrema"), (umidade_atraso1h == "baixo" & radiacao_atraso1h == "baixo ou nenhuma 0"  ), n = 50000)
+
+}
+
+
+media_sem_chuva <- mean(resultados_sem_chuva)
+media_chuva <- mean(resultados_chuva)
+media_chuva_extrema <- mean(resultados_chuva_extrema)
+
+
+# Imprima os resultados
+cat("Estimativa Pontual (Média): da probabilidade de não chover dado que a umidade estava baixa e radiação baixa" , media_sem_chuva, "\n")
+cat("Estimativa Pontual (Média): da probabilidade de chover dado que a umidade estava baixa e radiação baixa", media_chuva, "\n")
+cat("Estimativa Pontual (Média): da probabilidade de chuva extrema dado que a umidade estava baixa e radiação baixa", media_chuva_extrema, "\n")
+
+```
+
+
+# Fixando radiacao_atraso1h == "baixo ou nenhuma 0"
+# Para umidade medio.
+
+```{r}
+# Número de execuções.
+num_execucoes <- 3000
+
+# Vetor para armazenar os resultados.
+resultados_sem_chuva <- numeric(num_execucoes)
+resultados_chuva <- numeric(num_execucoes)
+resultados_chuva_extrema <- numeric(num_execucoes)
+
+
+
+# Loop para executar a consulta várias vezes
+for (i in 1:num_execucoes) {
+  
+  resultados_sem_chuva[i] <- cpquery(fitted_avg, (chuva == "Sem chuva"), (umidade_atraso1h == "medio" & radiacao_atraso1h == "baixo ou nenhuma 0"), n = 50000)
+  resultados_chuva[i] <- cpquery(fitted_avg, (chuva == "Chuva"), (umidade_atraso1h == "medio" & radiacao_atraso1h == "baixo ou nenhuma 0"), n = 50000)
+  resultados_chuva_extrema[i] <- cpquery(fitted_avg, (chuva == "Chuva Extrema"), (umidade_atraso1h == "medio" & radiacao_atraso1h == "baixo ou nenhuma 0"  ), n = 50000)
+
+}
+
+
+media_sem_chuva <- mean(resultados_sem_chuva)
+media_chuva <- mean(resultados_chuva)
+media_chuva_extrema <- mean(resultados_chuva_extrema)
+
+
+# Imprima os resultados
+cat("Estimativa Pontual (Média): da probabilidade de não chover dado que a umidade estava medio e radiação baixa" , media_sem_chuva, "\n")
+cat("Estimativa Pontual (Média): da probabilidade de chover dado que a umidade estava medio e radiação baixa", media_chuva, "\n")
+cat("Estimativa Pontual (Média): da probabilidade de chuva extrema dado que a umidade estava medio e radiação baixa", media_chuva_extrema, "\n")
+
+```
+
+
+
+# Fixando radiacao_atraso1h == "baixo ou nenhuma 0"
+# Para umidade alto.
+
+```{r}
+# Número de execuções.
+num_execucoes <- 3000
+
+# Vetor para armazenar os resultados.
+resultados_sem_chuva <- numeric(num_execucoes)
+resultados_chuva <- numeric(num_execucoes)
+resultados_chuva_extrema <- numeric(num_execucoes)
+
+
+
+# Loop para executar a consulta várias vezes
+for (i in 1:num_execucoes) {
+  
+  resultados_sem_chuva[i] <- cpquery(fitted_avg, (chuva == "Sem chuva"), (umidade_atraso1h == "alto" & radiacao_atraso1h == "baixo ou nenhuma 0"), n = 50000)
+  resultados_chuva[i] <- cpquery(fitted_avg, (chuva == "Chuva"), (umidade_atraso1h == "alto" & radiacao_atraso1h == "baixo ou nenhuma 0"), n = 50000)
+  resultados_chuva_extrema[i] <- cpquery(fitted_avg, (chuva == "Chuva Extrema"), (umidade_atraso1h == "alto" & radiacao_atraso1h == "baixo ou nenhuma 0"  ), n = 50000)
+
+}
+
+
+media_sem_chuva <- mean(resultados_sem_chuva)
+media_chuva <- mean(resultados_chuva)
+media_chuva_extrema <- mean(resultados_chuva_extrema)
+
+
+# Imprima os resultados
+cat("Estimativa Pontual (Média): da probabilidade de não chover dado que a umidade estava alta e radiação baixa" , media_sem_chuva, "\n")
+cat("Estimativa Pontual (Média): da probabilidade de chover dado que a umidade estava alta e radiação baixa", media_chuva, "\n")
+cat("Estimativa Pontual (Média): da probabilidade de chuva extrema dado que a umidade estava alta e radiação baixa", media_chuva_extrema, "\n")
+
+```
+
+# Para radiacao_atraso1h == "baixo ou nenhuma 0".
+
+```{r}
+# Número de execuções.
+num_execucoes <- 3000
+
+# Vetor para armazenar os resultados.
+resultados_sem_chuva <- numeric(num_execucoes)
+resultados_chuva <- numeric(num_execucoes)
+resultados_chuva_extrema <- numeric(num_execucoes)
+
+
+
+# Loop para executar a consulta várias vezes
+for (i in 1:num_execucoes) {
+  
+  resultados_sem_chuva[i] <- cpquery(fitted_avg, (chuva == "Sem chuva"), (radiacao_atraso1h == "baixo ou nenhuma 0"), n = 50000)
+  resultados_chuva[i] <- cpquery(fitted_avg, (chuva == "Chuva"), (radiacao_atraso1h == "baixo ou nenhuma 0"), n = 50000)
+  resultados_chuva_extrema[i] <- cpquery(fitted_avg, (chuva == "Chuva Extrema"), (radiacao_atraso1h == "baixo ou nenhuma 0"), n = 50000)
+
+}
+
+
+media_sem_chuva <- mean(resultados_sem_chuva)
+media_chuva <- mean(resultados_chuva)
+media_chuva_extrema <- mean(resultados_chuva_extrema)
+
+
+# Imprima os resultados
+cat("Estimativa Pontual (Média): da probabilidade de não chover dado que a radiacao_atraso1h estava baixo ou nenhuma 0", media_sem_chuva, "\n")
+cat("Estimativa Pontual (Média): da probabilidade de chover dado que a radiacao_atraso1h estava baixo ou nenhuma 0", media_chuva, "\n")
+cat("Estimativa Pontual (Média): da probabilidade de chuva extrema dado que a radiacao_atraso1h estava baixo ou nenhuma 0", media_chuva_extrema, "\n")
+
+```
+
+# Para radiacao_atraso1h == "medio".
+
+```{r}
+# Número de execuções.
+num_execucoes <- 3000
+
+# Vetor para armazenar os resultados.
+resultados_sem_chuva <- numeric(num_execucoes)
+resultados_chuva <- numeric(num_execucoes)
+resultados_chuva_extrema <- numeric(num_execucoes)
+
+
+
+# Loop para executar a consulta várias vezes
+for (i in 1:num_execucoes) {
+  
+  resultados_sem_chuva[i] <- cpquery(fitted_avg, (chuva == "Sem chuva"), (radiacao_atraso1h == "medio"), n = 50000)
+  resultados_chuva[i] <- cpquery(fitted_avg, (chuva == "Chuva"), (radiacao_atraso1h == "medio"), n = 50000)
+  resultados_chuva_extrema[i] <- cpquery(fitted_avg, (chuva == "Chuva Extrema"), (radiacao_atraso1h == "medio"), n = 50000)
+
+}
+
+
+media_sem_chuva <- mean(resultados_sem_chuva)
+media_chuva <- mean(resultados_chuva)
+media_chuva_extrema <- mean(resultados_chuva_extrema)
+
+
+# Imprima os resultados
+cat("Estimativa Pontual (Média): da probabilidade de não chover dado que a radiacao_atraso1h estava medio", media_sem_chuva, "\n")
+cat("Estimativa Pontual (Média): da probabilidade de chover dado que a radiacao_atraso1h estava medio", media_chuva, "\n")
+cat("Estimativa Pontual (Média): da probabilidade de chuva extrema dado que a radiacao_atraso1h estava medio", media_chuva_extrema, "\n")
+
+```
+
+
+# Para radiacao_atraso1h == "alto".
+
+```{r}
+# Número de execuções.
+num_execucoes <- 3000
+
+# Vetor para armazenar os resultados. 
+resultados_sem_chuva <- numeric(num_execucoes)
+resultados_chuva <- numeric(num_execucoes)
+resultados_chuva_extrema <- numeric(num_execucoes)
+
+
+
+# Loop para executar a consulta várias vezes
+for (i in 1:num_execucoes) {
+  
+  resultados_sem_chuva[i] <- cpquery(fitted_avg, (chuva == "Sem chuva"), (radiacao_atraso1h == "alto"), n = 50000)
+  resultados_chuva[i] <- cpquery(fitted_avg, (chuva == "Chuva"), (radiacao_atraso1h == "alto"), n = 50000)
+  resultados_chuva_extrema[i] <- cpquery(fitted_avg, (chuva == "Chuva Extrema"), (radiacao_atraso1h == "alto"), n = 50000)
+
+}
+
+
+media_sem_chuva <- mean(resultados_sem_chuva)
+media_chuva <- mean(resultados_chuva)
+media_chuva_extrema <- mean(resultados_chuva_extrema)
+
+
+# Imprima os resultados
+cat("Estimativa Pontual (Média): da probabilidade de não chover dado que a radiacao_atraso1h estava alto", media_sem_chuva, "\n")
+cat("Estimativa Pontual (Média): da probabilidade de chover dado que a radiacao_atraso1h estava alto", media_chuva, "\n")
+cat("Estimativa Pontual (Média): da probabilidade de chuva extrema dado que a radiacao_atraso1h estava alto", media_chuva_extrema, "\n")
+
+```
+
+
+# Para vento_atraso1h == "baixo".
+
+```{r}
+# Número de execuções.
+num_execucoes <- 3000
+
+# Vetor para armazenar os resultados.
+resultados_sem_chuva <- numeric(num_execucoes)
+resultados_chuva <- numeric(num_execucoes)
+resultados_chuva_extrema <- numeric(num_execucoes)
+
+
+
+# Loop para executar a consulta várias vezes
+for (i in 1:num_execucoes) {
+  
+  resultados_sem_chuva[i] <- cpquery(fitted_avg, (chuva == "Sem chuva"), (vento_atraso1h == "baixo"), n = 50000)
+  resultados_chuva[i] <- cpquery(fitted_avg, (chuva == "Chuva"), (vento_atraso1h == "baixo"), n = 50000)
+  resultados_chuva_extrema[i] <- cpquery(fitted_avg, (chuva == "Chuva Extrema"), (vento_atraso1h == "baixo"), n = 50000)
+
+}
+
+
+media_sem_chuva <- mean(resultados_sem_chuva)
+media_chuva <- mean(resultados_chuva)
+media_chuva_extrema <- mean(resultados_chuva_extrema)
+
+
+# Imprima os resultados
+cat("Estimativa Pontual (Média): da probabilidade de não chover dado que vento estava baixo", media_sem_chuva, "\n")
+cat("Estimativa Pontual (Média): da probabilidade de chover dado que vento estava baixo", media_chuva, "\n")
+cat("Estimativa Pontual (Média): da probabilidade de chuva extrema dado que vento estava baixo", media_chuva_extrema, "\n")
+
+```
+
+# Para vento_atraso1h == "medio".
+
+```{r}
+# Número de execuções.
+num_execucoes <- 3000
+
+# Vetor para armazenar os resultados.
+resultados_sem_chuva <- numeric(num_execucoes)
+resultados_chuva <- numeric(num_execucoes)
+resultados_chuva_extrema <- numeric(num_execucoes)
+
+
+
+# Loop para executar a consulta várias vezes
+for (i in 1:num_execucoes) {
+  
+  resultados_sem_chuva[i] <- cpquery(fitted_avg, (chuva == "Sem chuva"), (vento_atraso1h == "medio"), n = 50000)
+  resultados_chuva[i] <- cpquery(fitted_avg, (chuva == "Chuva"), (vento_atraso1h == "medio"), n = 50000)
+  resultados_chuva_extrema[i] <- cpquery(fitted_avg, (chuva == "Chuva Extrema"), (vento_atraso1h == "medio"), n = 50000)
+
+}
+
+
+media_sem_chuva <- mean(resultados_sem_chuva)
+media_chuva <- mean(resultados_chuva)
+media_chuva_extrema <- mean(resultados_chuva_extrema)
+
+
+# Imprima os resultados
+cat("Estimativa Pontual (Média): da probabilidade de não chover dado que vento estava medio", media_sem_chuva, "\n")
+cat("Estimativa Pontual (Média): da probabilidade de chover dado que vento estava medio", media_chuva, "\n")
+cat("Estimativa Pontual (Média): da probabilidade de chuva extrema dado que vento estava medio", media_chuva_extrema, "\n")
+
+```
+
+# Para vento_atraso1h == "alto".
+
+```{r}
+# Número de execuções.
+num_execucoes <- 3000
+
+# Vetor para armazenar os resultados.
+resultados_sem_chuva <- numeric(num_execucoes)
+resultados_chuva <- numeric(num_execucoes)
+resultados_chuva_extrema <- numeric(num_execucoes)
+
+
+
+# Loop para executar a consulta várias vezes
+for (i in 1:num_execucoes) {
+  
+  resultados_sem_chuva[i] <- cpquery(fitted_avg, (chuva == "Sem chuva"), (vento_atraso1h == "alto"), n = 50000)
+  resultados_chuva[i] <- cpquery(fitted_avg, (chuva == "Chuva"), (vento_atraso1h == "alto"), n = 50000)
+  resultados_chuva_extrema[i] <- cpquery(fitted_avg, (chuva == "Chuva Extrema"), (vento_atraso1h == "alto"), n = 50000)
+
+}
+
+
+media_sem_chuva <- mean(resultados_sem_chuva)
+media_chuva <- mean(resultados_chuva)
+media_chuva_extrema <- mean(resultados_chuva_extrema)
+
+
+# Imprima os resultados
+cat("Estimativa Pontual (Média): da probabilidade de não chover dado que vento estava alto", media_sem_chuva, "\n")
+cat("Estimativa Pontual (Média): da probabilidade de chover dado que vento estava alto", media_chuva, "\n")
+cat("Estimativa Pontual (Média): da probabilidade de chuva extrema dado que vento estava alto", media_chuva_extrema, "\n")
+
+```

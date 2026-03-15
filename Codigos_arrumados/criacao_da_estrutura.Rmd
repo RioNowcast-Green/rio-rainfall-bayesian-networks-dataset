@@ -1,0 +1,105 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+
+# bibliotecas
+
+```{r}
+library(bnlearn)
+library(igraph)
+library(dplyr)
+library(gplots)
+library(Rgraphviz)
+library(dplyr)
+library(ROSE)
+```
+
+# Dados
+
+```{r}
+
+setwd("C:\\Users\\Pichau\\INMET")
+
+df_reduzido_discretas = read.csv("C:/Users/Pichau/INMET/TODAS_ESTACOES/df_reduzido_discretas_renomeado.csv", header = TRUE, sep = ",")
+
+df_reduzido_discretas[] <- lapply(df_reduzido_discretas, as.factor)
+
+```
+
+# Blacklist
+```{r}
+source("C:\\Users\\Pichau\\INMET\\funcao_blacklist\\blacklist.R")
+```
+
+# Estrutura da Rede Bayesiana HC K2.
+# Usar score = "AIC" para HC AIC
+# Usar score = "BIC" para HC BIC
+# Usar score = "bde" para HC Bde 
+# Para usar o algoritmo Tabu Search, trocar HC para tabu
+# Para algoritmo PC: pc.stable(df_reduzido_discretas, blacklist = bl)
+# Para algoritmo GS: gs(df_reduzido_discretas, blacklist = bl)
+# Para algoritmo IAMB: iamb(df_reduzido_discretas, blacklist = bl)
+# Para algoritmo MMPC: mmpc(df_reduzido_discretas, blacklist = bl)
+# Para algoritmo MMHC: mmhc(df_reduzido_discretas, blacklist = bl)
+# Para algoritmo RSMAX2: rsmax2(df_reduzido_discretas, blacklist = bl)  
+
+```{r}
+rb_k2 <- hc(df_reduzido_discretas, blacklist = bl, score = "k2")
+rb_k2
+```
+
+# BOOTSTRAP. 
+
+```{r}
+str.diff_k2 = boot.strength(df_reduzido_discretas, R = 300, algorithm = "hc",
+                             algorithm.args = list(blacklist = bl, score = "k2"))
+
+caminho_csv = "C:/Users/Pichau/INMET/resultado_botst/forca_arestas_hc_k2.csv"
+write.csv(str.diff_k2, caminho_csv, row.names = FALSE)
+
+```
+
+# Define o  minimo para dizer se um arco é forte o suficiente. 
+```{r}
+attr(str.diff_k2, "threshold")
+```
+
+# Criando uma rede mais simples, com força dos arcos maior que 0.85
+```{r}
+avg.simpler = averaged.network(str.diff_k2, threshold =0.85)
+
+avg.simpler
+
+```
+
+# Removendo os undirected arcs
+```{r}
+
+avg.simpler <- bnlearn::drop.arc(avg.simpler, from = "radiacao_valor3", to = "orvalho_valor3")
+avg.simpler <- bnlearn::drop.arc(avg.simpler, from = "orvalho_valor3", to = "radiacao_valor3")
+
+avg.simpler <- bnlearn::drop.arc(avg.simpler, from = "pressao_valor3", to = "vento_valor3")
+avg.simpler <- bnlearn::drop.arc(avg.simpler, from = "vento_valor3", to = "pressao_valor3")
+
+ 
+avg.simpler
+```
+
+
+```{r}
+g <- as.igraph(avg.simpler)
+
+layout_sugi <- layout_with_sugiyama(g)$layout
+
+png("C:/Users/Pichau/INMET/Estruturas das Redes Bayesianas/HC_k2/rede_média_hc_aic.png", 
+    width = 2000, height = 1600, res = 150)
+
+plot(
+  g,layout = layout_sugi,vertex.label = V(g)$name,vertex.size = 12,vertex.label.cex = 0.4,vertex.label.color = "black",vertex.color = "lightblue",edge.arrow.size = 0.5,
+  edge.color = "gray40",margin = 0.1,main = "Rede Média HC - k2"
+)
+
+dev.off()
+```
